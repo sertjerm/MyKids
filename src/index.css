@@ -1,0 +1,101 @@
+@import url('https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap');
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    font-family: 'Prompt', sans-serif;
+    background: linear-gradient(135deg, #FFE1E6 0%, #E8D5FF 25%, #D1E7FF 50%, #D4EDDA 75%, #FFF3CD 100%);
+    min-height: 100vh;
+  }
+}
+
+@layer components {
+  .btn-pastel {
+    @apply px-4 py-2 rounded-xl font-medium transition-all duration-300 transform hover:scale-105 active:scale-95;
+  }
+  
+  .card-pastel {
+    @apply bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-white/20 p-6;
+  }
+  
+  .badge-good {
+    @apply bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm font-medium;
+  }
+  
+  .badge-bad {
+    @apply bg-red-100 text-red-800 px-3 py-1 rounded-full text-sm font-medium;
+  }
+  
+  /* เพิ่ม utility classes สำหรับ pastel colors */
+  .bg-pastel-pink {
+    background-color: #FFE1E6;
+  }
+  
+  .bg-pastel-purple {
+    background-color: #E8D5FF;
+  }
+  
+  .bg-pastel-blue {
+    background-color: #D1E7FF;
+  }
+  
+  .bg-pastel-green {
+    background-color: #D4EDDA;
+  }
+  
+  .bg-pastel-yellow {
+    background-color: #FFF3CD;
+  }
+  
+  .bg-pastel-orange {
+    background-color: #FFE5B4;
+  }
+  
+  .bg-pastel-red {
+    background-color: #FFD7D7;
+  }
+  
+  .text-pastel-pink {
+    color: #FFB3BA;
+  }
+  
+  .text-pastel-purple {
+    color: #D5A6FF;
+  }
+  
+  .text-pastel-blue {
+    color: #A6C8FF;
+  }
+  
+  .text-pastel-green {
+    color: #B3E5B8;
+  }
+  
+  .text-pastel-yellow {
+    color: #FFF3A0;
+  }
+  
+  .text-pastel-orange {
+    color: #FFCC99;
+  }
+  
+  .text-pastel-red {
+    color: #FFB3B3;
+  }
+}
+
+@layer utilities {
+  .animate-bounce-slow {
+    animation: bounce 2s infinite;
+  }
+  
+  .animate-pulse-slow {
+    animation: pulse 3s infinite;
+  }
+  
+  .gradient-rainbow {
+    background: linear-gradient(135deg, #FFE1E6 0%, #E8D5FF 25%, #D1E7FF 50%, #D4EDDA 75%, #FFF3CD 100%);
+  }
+}
