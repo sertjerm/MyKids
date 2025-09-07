@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Settings, Home, Users, Star } from 'lucide-react';
+import { getFullURL, debugInfo } from '../../utils/environment';
 
 const Navigation = ({ currentView, setCurrentView, selectedChild, setSelectedChild }) => {
   const [children] = useState([
@@ -12,6 +13,13 @@ const Navigation = ({ currentView, setCurrentView, selectedChild, setSelectedChi
       setSelectedChild(children[0].id);
     }
   }, [selectedChild, setSelectedChild, children]);
+
+  // Debug info in development
+  useEffect(() => {
+    if (import.meta.env.DEV) {
+      console.log('🧭 Navigation Debug:', debugInfo());
+    }
+  }, []);
 
   return (
     <div className="card-pastel mb-8">
@@ -66,11 +74,21 @@ const Navigation = ({ currentView, setCurrentView, selectedChild, setSelectedChi
           </div>
         )}
 
-        <button className="btn-pastel bg-pastel-green text-green-800 flex items-center gap-2">
+        <button 
+          onClick={() => window.location.href = getFullURL()}
+          className="btn-pastel bg-pastel-green text-green-800 flex items-center gap-2"
+        >
           <Home className="w-4 h-4" />
           <span className="hidden sm:inline">กลับ</span>หน้าหลัก
         </button>
       </div>
+      
+      {/* Debug info in development */}
+      {import.meta.env.DEV && (
+        <div className="mt-4 p-2 bg-yellow-50 rounded text-xs text-gray-600">
+          🔍 Debug: {JSON.stringify(debugInfo(), null, 2)}
+        </div>
+      )}
     </div>
   );
 };

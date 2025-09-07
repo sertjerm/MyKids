@@ -3,7 +3,7 @@ import react from '@vitejs/plugin-react'
 
 export default defineConfig({
   plugins: [react()],
-  base: '/my-kids/', // เปลี่ยนให้ตรงกับ deployment path
+  base: '/my-kids/', // Production with subdirectory
   build: {
     outDir: 'dist',
     assetsDir: 'assets',
@@ -17,13 +17,5 @@ export default defineConfig({
         }
       }
     }
-  },
-  server: {
-    port: 5173,
-    host: true
-  },
-  preview: {
-    port: 4173,
-    host: true
   }
 })

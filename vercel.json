@@ -1,0 +1,27 @@
+{
+  "rewrites": [
+    {
+      "source": "/my-kids/(.*)",
+      "destination": "/my-kids/index.html"
+    },
+    {
+      "source": "/api/(.*)",
+      "destination": "http://localhost:3001/api/$1"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ],
+  "headers": [
+    {
+      "source": "/my-kids/assets/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    }
+  ]
+}

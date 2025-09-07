@@ -1,0 +1,6 @@
+# Netlify SPA redirect rules for subdirectory
+/my-kids/*    /my-kids/index.html   200
+/*            /index.html           200
+
+# API redirects
+/api/*        http://localhost:3001/api/:splat  200
