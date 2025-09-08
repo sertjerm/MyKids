@@ -1,0 +1,8 @@
+สร้าง db mysql ที่ support ภาษาไทย ที่รองรับโปรเจ็คนี้ ชื่อ database => MyKidsDB
+ทั้งหน้า good,bad ,reward,admin 
+ปรับ primary key ให้เป็นเลข 4 หลัก 
+เช่น child=>"c001",badbehavior=>b001,goodbehavior=>g001,rewards =>"r001" (หรือช่วยแนะนำสิ่งที่ดีกว่า แต่ใช้แค่ 4 หลัก)
+ดูตัวอย่างจาก MSSQL เดิมที่ออกแบบไว้ก่อนหน้านี้
+โดยมี api (index.php เดิมตามนี้)
+behavior good ให้ default repeat =0(ทำได้ครั้งเดียว) ส่วน bad default=>1 (ทำซ้ำได้)
+10.6.22-MariaDB-cll-lve

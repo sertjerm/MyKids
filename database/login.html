@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Glassmorphism Login</title>
+    <style>
+      body {
+        margin: 0;
+        padding: 0;
+        /* font-family: 'Poppins', sans-serif;
+      background: url("https://images.unsplash.com/photo-1503264116251-35a269479413") no-repeat center center/cover; */
+        font-family: "Prompt", sans-serif;
+        background: linear-gradient(
+          135deg,
+          #ffe1e6 0%,
+          #e8d5ff 25%,
+          #d1e7ff 50%,
+          #d4edda 75%,
+          #fff3cd 100%
+        );
+        height: 100vh;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+      }
+      /* body {
+    font-family: 'Prompt', sans-serif;
+    background: linear-gradient(135deg, #FFE1E6 0%, #E8D5FF 25%, #D1E7FF 50%, #D4EDDA 75%, #FFF3CD 100%);
+    min-height: 100vh;
+  } */
+      .login-container {
+        background: rgba(255, 255, 255, 0.1);
+        backdrop-filter: blur(15px);
+        border-radius: 20px;
+        padding: 40px;
+        width: 350px;
+        text-align: center;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        animation: fadeIn 1.5s ease;
+      }
+      @keyframes fadeIn {
+        from {
+          opacity: 0;
+          transform: translateY(-50px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+      .login-container h2 {
+        color: white;
+        margin-bottom: 20px;
+      }
+      .input-box {
+        margin-bottom: 20px;
+        text-align: left;
+      }
+      .input-box label {
+        color: white;
+        font-weight: bold;
+        display: block;
+        margin-bottom: 5px;
+      }
+      .input-box input {
+        width: 100%;
+        padding: 12px;
+        border: none;
+        border-radius: 10px;
+        background: rgba(255, 255, 255, 0.2);
+        color: white;
+        font-size: 16px;
+        outline: none;
+        transition: 0.3s;
+      }
+      .input-box input:focus {
+        background: rgba(255, 255, 255, 0.3);
+        box-shadow: 0 0 10px #00f2fe;
+      }
+      .btn {
+        width: 100%;
+        padding: 12px;
+        border: none;
+        border-radius: 10px;
+        background: linear-gradient(135deg, #4facfe, #00f2fe);
+        color: white;
+        font-size: 18px;
+        font-weight: bold;
+        cursor: pointer;
+        transition: 0.3s;
+      }
+      .btn:hover {
+        transform: scale(1.05);
+        background: linear-gradient(135deg, #00f2fe, #4facfe);
+      }
+      .msg {
+        margin-top: 15px;
+        font-size: 14px;
+        color: yellow;
+        font-weight: bold;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="login-container">
+      <h2>Welcome Back</h2>
+      <div class="input-box">
+        <label for="username">Username</label>
+        <input type="text" id="username" placeholder="Enter Username" />
+      </div>
+      <div class="input-box">
+        <label for="password">Password</label>
+        <input type="password" id="password" placeholder="Enter Password" />
+      </div>
+      <button class="btn" onclick="login()">Login</button>
+      <p class="msg" id="msg"></p>
+    </div>
+    <script>
+      function login() {
+        let username = document.getElementById("username").value;
+        let password = document.getElementById("password").value;
+        let msg = document.getElementById("msg");
+        if (username === "admin" && password === "1234") {
+          msg.style.color = "lightgreen";
+          msg.innerText = "✅ Login Successful!";
+        } else {
+          msg.style.color = "red";
+          msg.innerText = "❌ Invalid Username or Password!";
+        }
+      }
+    </script>
+  </body>
+</html>

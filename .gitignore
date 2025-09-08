@@ -27,3 +27,6 @@ dist-ssr
 src/index.built.css
 test-*.css
 dist/
+
+backend/config.php
+
