@@ -1,278 +1,181 @@
 // src/services/api.js - Fixed version for MyKids API
 
-// API Configuration - แก้ไขให้ใช้ import.meta.env สำหรับ Vite
-const API_BASE_URL = import.meta.env.VITE_API_URL || "https://sertjerm.com/my-kids-api/api.php";
+import axios from "axios";
 
-console.log('API_BASE_URL:', API_BASE_URL); // Debug log
+// API Configuration - ใช้ Vite environment variable
+const API_BASE_URL =
+  import.meta.env.VITE_API_URL || "https://sertjerm.com/my-kids-api/api.php";
+
+console.log("🔗 API_BASE_URL:", API_BASE_URL);
 
 // Helper function to make API calls with better error handling
 const apiCall = async (endpoint, method = "GET", data = null) => {
   const url = endpoint ? `${API_BASE_URL}?${endpoint}` : API_BASE_URL;
 
-  const options = {
-    method: method,
-    headers: {
-      "Content-Type": "application/json",
-      "Accept": "application/json",
-    },
-    mode: 'cors', // Explicitly set CORS mode
-  };
-
-  if (data && method !== "GET") {
-    options.body = JSON.stringify(data);
-  }
-
   try {
-    console.log(`API Call: ${method} ${url}`, data ? { data } : ''); // Debug log
-    
-    const response = await fetch(url, options);
+    const response = await axios({
+      url,
+      method,
+      data: method !== "GET" ? data : undefined,
+      headers: { "Content-Type": "application/json" },
+    });
 
-    console.log(`API Response: ${response.status} ${response.statusText}`); // Debug log
-
-    // Check if response is OK
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`HTTP ${response.status}: ${errorText}`);
+    // axios จะคืนข้อมูลใน response.data
+    if (response.data.error) {
+      throw new Error(response.data.message || response.data.error);
     }
-
-    // Check if response is JSON
-    const contentType = response.headers.get('content-type');
-    if (!contentType || !contentType.includes('application/json')) {
-      const text = await response.text();
-      throw new Error(`Expected JSON, got: ${contentType}. Response: ${text.substring(0, 200)}`);
-    }
-
-    const result = await response.json();
-    console.log('API Result:', result); // Debug log
-
-    if (result.error) {
-      throw new Error(result.message || result.error);
-    }
-
-    return result;
+    return response.data;
   } catch (error) {
     console.error("API Error:", error);
-    console.error("URL:", url);
-    console.error("Options:", options);
-    throw error;
+    throw error.response?.data?.message || error.message;
   }
 };
 
-// Children API
-export const childrenAPI = {
-  // Get all children
-  getAll: () => apiCall("children"),
-
-  // Get child by ID
-  getById: (id) => apiCall(`children&id=${id}`),
-
-  // Get today's score for a child
-  getTodayScore: (id) => apiCall(`children&id=${id}&today-score`),
-
-  // Create new child
-  create: (data) => apiCall("children", "POST", data),
-
-  // Update child (if supported)
-  update: (id, data) => apiCall("children", "PUT", { id, ...data }),
-
-  // Delete child (if supported)
-  delete: (id) => apiCall("children", "DELETE", { id }),
+// Health Check API
+export const healthAPI = {
+  check: () => apiCall("health"),
 };
 
-// Behaviors API
+// Children API - ตรงกับ backend endpoints
+export const childrenAPI = {
+  // ดึงเด็กทั้งหมด
+  getAll: () => apiCall("children"),
+
+  // สร้างเด็กใหม่
+  create: (data) =>
+    apiCall("children", "POST", {
+      Name: data.name,
+      Age: data.age,
+      AvatarPath: data.avatarPath || "👶",
+    }),
+
+  // ดึงข้อมูล dashboard (รวมคะแนน)
+  getDashboard: () => apiCall("dashboard"),
+};
+
+// Behaviors API - ตรงกับ backend endpoints
 export const behaviorsAPI = {
-  // Get all behaviors
+  // ดึงพฤติกรรมทั้งหมด
   getAll: () => apiCall("behaviors"),
 
-  // Get good behaviors only
+  // ดึงพฤติกรรมดีเท่านั้น (good-behaviors หรือ tasks)
   getGood: () => apiCall("good-behaviors"),
 
-  // Get bad behaviors only
+  // ดึงพฤติกรรมไม่ดีเท่านั้น (bad-behaviors)
   getBad: () => apiCall("bad-behaviors"),
-
-  // Get behavior by ID
-  getById: (id) => apiCall(`behaviors&id=${id}`),
-
-  // Create new behavior
-  create: (data) => apiCall("behaviors", "POST", data),
-
-  // Get behavior summary
-  getSummary: () => apiCall("behavior-summary"),
-
-  // Update behavior (if supported)
-  update: (id, data) => apiCall("behaviors", "PUT", { id, ...data }),
-
-  // Delete behavior (if supported)
-  delete: (id) => apiCall("behaviors", "DELETE", { id }),
 };
 
 // Rewards API
 export const rewardsAPI = {
-  // Get all rewards
+  // ดึงรางวัลทั้งหมด
   getAll: () => apiCall("rewards"),
-
-  // Get reward by ID
-  getById: (id) => apiCall(`rewards&id=${id}`),
-
-  // Create new reward
-  create: (data) => apiCall("rewards", "POST", data),
-
-  // Update reward (if supported)
-  update: (id, data) => apiCall("rewards", "PUT", { id, ...data }),
-
-  // Delete reward (if supported)
-  delete: (id) => apiCall("rewards", "DELETE", { id }),
 };
 
-// Activities API
+// Activities API - สำหรับบันทึกกิจกรรม
 export const activitiesAPI = {
-  // Get all activities
+  // ดึงกิจกรรมทั้งหมด
   getAll: () => apiCall("activities"),
 
-  // Get daily activities
-  getDaily: (date = null, childId = null) => {
-    let endpoint = "daily";
-    const params = [];
-
-    if (date) params.push(`date=${date}`);
-    if (childId) params.push(`childId=${childId}`);
-
-    if (params.length > 0) {
-      endpoint += "&" + params.join("&");
-    }
-
-    return apiCall(endpoint);
-  },
-
-  // Record new activity
-  record: (data) => apiCall("activities", "POST", data),
-
-  // Create activity (alias for record)
-  create: (data) => apiCall("activities", "POST", data),
-
-  // Get today's summary
-  getTodaySummary: (date = null, childId = null) => {
-    let endpoint = "today-summary";
-    const params = [];
-
-    if (date) params.push(`date=${date}`);
-    if (childId) params.push(`childId=${childId}`);
-
-    if (params.length > 0) {
-      endpoint += "&" + params.join("&");
-    }
-
-    return apiCall(endpoint);
-  },
-
-  // Update activity (if supported)
-  update: (id, data) => apiCall("activities", "PUT", { id, ...data }),
-
-  // Delete activity (if supported)
-  delete: (id) => apiCall("activities", "DELETE", { id }),
+  // บันทึกกิจกรรมใหม่
+  create: (data) =>
+    apiCall("activities", "POST", {
+      ChildId: data.childId,
+      ItemId: data.itemId,
+      ActivityType: data.activityType || "Behavior",
+      Count: data.count || 1,
+      Note: data.note || "",
+      ActivityDate: data.activityDate || new Date().toISOString().split("T")[0],
+    }),
 };
 
 // Dashboard API
 export const dashboardAPI = {
-  // Get dashboard overview
-  getOverview: () => apiCall("dashboard"),
+  // ดึงข้อมูล dashboard
+  getSummary: () => apiCall("dashboard"),
 };
 
-// System API
-export const systemAPI = {
-  // Health check
-  health: () => apiCall("health"),
-
-  // Get API information
-  info: () => apiCall(""),
-};
-
-// Legacy compatibility
-export const dailyActivityAPI = {
-  getAll: () => activitiesAPI.getAll(),
-  getByDate: (date) => activitiesAPI.getDaily(date),
-  getByChild: (childId) => activitiesAPI.getDaily(null, childId),
-  create: (data) => activitiesAPI.create(data),
-  getDailySummary: (childId, date) => activitiesAPI.getTodaySummary(date, childId),
-  update: (id, data) => activitiesAPI.update(id, data),
-  delete: (id) => activitiesAPI.delete(id),
-};
-
-// Utility functions
+// API Utils สำหรับงานทั่วไป
 export const apiUtils = {
-  // Format activity data
-  formatActivityData: (childId, itemId, activityType, count = 1, note = "") => ({
-    ChildId: childId,
-    ItemId: itemId,
-    ActivityType: activityType,
-    Count: count,
-    Note: note,
-    ActivityDate: new Date().toISOString().split("T")[0],
+  // ตรวจสอบสถานะ API
+  checkStatus: async () => {
+    try {
+      const result = await healthAPI.check();
+      return {
+        status: "connected",
+        data: result,
+      };
+    } catch (error) {
+      return {
+        status: "error",
+        data: { error: error.message },
+      };
+    }
+  },
+
+  // แปลงข้อมูลจาก API เป็น format ที่ frontend ต้องการ
+  transformChild: (child) => ({
+    id: child.Id,
+    name: child.Name,
+    age: child.Age,
+    avatar: child.AvatarPath || "👶",
+    todayPoints: child.TodayPoints || 0,
+    totalPoints: child.TotalPoints || 0,
+    isActive: child.IsActive,
   }),
 
-  // Record multiple activities
-  recordMultipleActivities: async (activities) => {
-    const results = [];
-    for (const activity of activities) {
-      try {
-        const result = await activitiesAPI.record(activity);
-        results.push({ success: true, result, activity });
-      } catch (error) {
-        results.push({ success: false, error: error.message, activity });
-      }
-    }
-    return results;
-  },
+  transformBehavior: (behavior) => ({
+    id: behavior.Id,
+    name: behavior.Name,
+    points: behavior.Points,
+    type: behavior.Type,
+    isActive: behavior.IsActive,
+  }),
 
-  // Get child's current total points
-  getChildTotalPoints: async (childId) => {
-    try {
-      const child = await childrenAPI.getById(childId);
-      return child.TotalPoints || 0;
-    } catch (error) {
-      console.error("Error getting child total points:", error);
-      return 0;
-    }
-  },
+  transformReward: (reward) => ({
+    id: reward.Id,
+    name: reward.Name,
+    cost: reward.Cost,
+    isActive: reward.IsActive,
+  }),
 
-  // Check if child can afford a reward
-  canAffordReward: async (childId, rewardCost) => {
-    const totalPoints = await apiUtils.getChildTotalPoints(childId);
-    return totalPoints >= rewardCost;
+  transformActivity: (activity) => ({
+    id: activity.Id || `${activity.ChildId}-${activity.ItemId}-${Date.now()}`,
+    childId: activity.ChildId,
+    childName: activity.ChildName,
+    itemId: activity.ItemId,
+    itemName: activity.ItemName,
+    activityType: activity.ActivityType,
+    count: activity.Count,
+    note: activity.Note,
+    activityDate: activity.ActivityDate,
+    createdAt: activity.CreatedAt,
+  }),
+};
+
+// Export ค่า config สำหรับใช้ในที่อื่น
+export const API_CONFIG = {
+  BASE_URL: API_BASE_URL,
+  ENDPOINTS: {
+    HEALTH: "health",
+    CHILDREN: "children",
+    BEHAVIORS: "behaviors",
+    GOOD_BEHAVIORS: "good-behaviors",
+    BAD_BEHAVIORS: "bad-behaviors",
+    REWARDS: "rewards",
+    ACTIVITIES: "activities",
+    DASHBOARD: "dashboard",
   },
 };
 
-// API status checker with detailed error reporting
-export const checkApiStatus = async () => {
-  try {
-    const health = await systemAPI.health();
-    return {
-      status: "connected",
-      message: "API is working",
-      data: health,
-    };
-  } catch (error) {
-    return {
-      status: "error",
-      message: error.message,
-      data: null,
-      url: API_BASE_URL,
-      timestamp: new Date().toISOString(),
-    };
-  }
-};
-
-// Default export
+// Export default object รวม
 const api = {
+  health: healthAPI,
   children: childrenAPI,
   behaviors: behaviorsAPI,
   rewards: rewardsAPI,
   activities: activitiesAPI,
   dashboard: dashboardAPI,
-  system: systemAPI,
   utils: apiUtils,
-  checkStatus: checkApiStatus,
-  baseUrl: API_BASE_URL, // Export base URL for debugging
 };
 
 export default api;

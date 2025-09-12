@@ -1,9 +1,9 @@
-// src/hooks/useApi.js - Custom Hook for API management
+// src/hooks/useApi.js - Custom Hooks for MyKids API
 
 import { useState, useEffect, useCallback } from 'react';
 import api from '../services/api';
 
-// Generic API hook
+// Generic API hook สำหรับเรียกข้อมูล
 export const useApi = (apiFunction, dependencies = []) => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -13,11 +13,15 @@ export const useApi = (apiFunction, dependencies = []) => {
     try {
       setLoading(true);
       setError(null);
+      console.log('🔄 Fetching data...');
+      
       const result = await apiFunction();
+      
+      console.log('✅ Data fetched successfully:', result);
       setData(result);
     } catch (err) {
+      console.error('❌ API Error:', err);
       setError(err.message);
-      console.error('API Error:', err);
     } finally {
       setLoading(false);
     }
@@ -34,66 +38,25 @@ export const useApi = (apiFunction, dependencies = []) => {
   return { data, loading, error, refetch };
 };
 
-// Hook สำหรับดึงข้อมูลเด็กทั้งหมด
-export const useChildren = () => {
-  return useApi(api.children.getAll);
-};
-
-// Hook สำหรับดึงข้อมูลเด็กคนเดียว
-export const useChild = (childId) => {
-  return useApi(() => api.children.getById(childId), [childId]);
-};
-
-// Hook สำหรับดึงคะแนนวันนี้
-export const useTodayScore = (childId) => {
-  return useApi(() => api.children.getTodayScore(childId), [childId]);
-};
-
-// Hook สำหรับดึงพฤติกรรมดี
-export const useGoodBehaviors = () => {
-  return useApi(api.behaviors.getGood);
-};
-
-// Hook สำหรับดึงพฤติกรรมไม่ดี
-export const useBadBehaviors = () => {
-  return useApi(api.behaviors.getBad);
-};
-
-// Hook สำหรับดึงพฤติกรรมทั้งหมด
-export const useBehaviors = () => {
-  return useApi(api.behaviors.getAll);
-};
-
-// Hook สำหรับดึงรางวัล
-export const useRewards = () => {
-  return useApi(api.rewards.getAll);
-};
-
-// Hook สำหรับดึงกิจกรรม
-export const useActivities = () => {
-  return useApi(api.activities.getAll);
-};
-
-// Hook สำหรับดึง Dashboard
-export const useDashboard = () => {
-  return useApi(api.dashboard.getOverview);
-};
-
-// Hook สำหรับจัดการการส่งข้อมูล (POST/PUT/DELETE)
+// Generic mutation hook สำหรับสร้าง/แก้ไขข้อมูล
 export const useApiMutation = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  const mutate = useCallback(async (apiFunction, data = null) => {
+  const mutate = useCallback(async (apiFunction, data) => {
     try {
       setLoading(true);
       setError(null);
+      console.log('🔄 Mutating data...', data);
+      
       const result = await apiFunction(data);
-      return { success: true, data: result };
+      
+      console.log('✅ Mutation successful:', result);
+      return result;
     } catch (err) {
+      console.error('❌ Mutation Error:', err);
       setError(err.message);
-      console.error('Mutation Error:', err);
-      return { success: false, error: err.message };
+      throw err;
     } finally {
       setLoading(false);
     }
@@ -102,30 +65,125 @@ export const useApiMutation = () => {
   return { mutate, loading, error };
 };
 
-// Hook สำหรับบันทึกกิจกรรม
-export const useRecordActivity = () => {
-  const { mutate, loading, error } = useApiMutation();
+// Hook สำหรับตรวจสอบสถานะ API
+export const useApiStatus = () => {
+  const [status, setStatus] = useState('checking');
+  const [statusData, setStatusData] = useState(null);
 
-  const recordActivity = useCallback(async (activityData) => {
-    return await mutate(api.activities.record, activityData);
-  }, [mutate]);
-
-  const recordMultipleActivities = useCallback(async (activitiesArray) => {
-    const results = [];
-    
-    for (const activity of activitiesArray) {
-      const result = await recordActivity(activity);
-      results.push(result);
+  const checkStatus = useCallback(async () => {
+    try {
+      console.log('🔍 Checking API status...');
+      const result = await api.utils.checkStatus();
+      setStatus(result.status);
+      setStatusData(result.data);
+      console.log('📊 API Status:', result.status);
+    } catch (err) {
+      console.error('❌ Status Check Error:', err);
+      setStatus('error');
+      setStatusData({ error: err.message });
     }
-    
-    return results;
-  }, [recordActivity]);
+  }, []);
 
+  useEffect(() => {
+    checkStatus();
+    
+    // ตรวจสอบสถานะทุก 30 วินาที
+    const interval = setInterval(checkStatus, 30000);
+    
+    return () => clearInterval(interval);
+  }, [checkStatus]);
+
+  return { status, statusData, checkStatus };
+};
+
+// Hook สำหรับดึงข้อมูลเด็กทั้งหมด
+export const useChildren = () => {
+  const { data, loading, error, refetch } = useApi(api.children.getAll);
+  
+  // แปลงข้อมูลให้เป็น format ที่ frontend ใช้
+  const transformedData = data ? data.map(api.utils.transformChild) : [];
+  
   return { 
-    recordActivity, 
-    recordMultipleActivities, 
+    children: transformedData, 
     loading, 
-    error 
+    error, 
+    refetch 
+  };
+};
+
+// Hook สำหรับดึงข้อมูล dashboard
+export const useDashboard = () => {
+  const { data, loading, error, refetch } = useApi(api.dashboard.getSummary);
+  
+  // แปลงข้อมูล dashboard
+  const transformedData = data ? {
+    children: data.children ? data.children.map(api.utils.transformChild) : [],
+    totalChildren: data.total_children || 0,
+    date: data.date,
+    database: data.database
+  } : null;
+  
+  return { 
+    dashboardData: transformedData, 
+    loading, 
+    error, 
+    refetch 
+  };
+};
+
+// Hook สำหรับดึงพฤติกรรมดี
+export const useGoodBehaviors = () => {
+  const { data, loading, error, refetch } = useApi(api.behaviors.getGood);
+  
+  const transformedData = data ? data.map(api.utils.transformBehavior) : [];
+  
+  return { 
+    goodBehaviors: transformedData, 
+    loading, 
+    error, 
+    refetch 
+  };
+};
+
+// Hook สำหรับดึงพฤติกรรมไม่ดี
+export const useBadBehaviors = () => {
+  const { data, loading, error, refetch } = useApi(api.behaviors.getBad);
+  
+  const transformedData = data ? data.map(api.utils.transformBehavior) : [];
+  
+  return { 
+    badBehaviors: transformedData, 
+    loading, 
+    error, 
+    refetch 
+  };
+};
+
+// Hook สำหรับดึงรางวัลทั้งหมด
+export const useRewards = () => {
+  const { data, loading, error, refetch } = useApi(api.rewards.getAll);
+  
+  const transformedData = data ? data.map(api.utils.transformReward) : [];
+  
+  return { 
+    rewards: transformedData, 
+    loading, 
+    error, 
+    refetch 
+  };
+};
+
+// Hook สำหรับดึงกิจกรรมทั้งหมด
+export const useActivities = () => {
+  const { data, loading, error, refetch } = useApi(api.activities.getAll);
+  
+  const transformedData = data ? data.map(api.utils.transformActivity) : [];
+  
+  return { 
+    activities: transformedData, 
+    loading, 
+    error, 
+    refetch 
   };
 };
 
@@ -140,130 +198,92 @@ export const useCreateChild = () => {
   return { createChild, loading, error };
 };
 
-// Hook สำหรับสร้างพฤติกรรมใหม่
-export const useCreateBehavior = () => {
+// Hook สำหรับบันทึกกิจกรรม
+export const useCreateActivity = () => {
   const { mutate, loading, error } = useApiMutation();
 
-  const createBehavior = useCallback(async (behaviorData) => {
-    return await mutate(api.behaviors.create, behaviorData);
+  const createActivity = useCallback(async (activityData) => {
+    return await mutate(api.activities.create, activityData);
   }, [mutate]);
 
-  return { createBehavior, loading, error };
-};
-
-// Hook สำหรับสร้างรางวัลใหม่
-export const useCreateReward = () => {
-  const { mutate, loading, error } = useApiMutation();
-
-  const createReward = useCallback(async (rewardData) => {
-    return await mutate(api.rewards.create, rewardData);
-  }, [mutate]);
-
-  return { createReward, loading, error };
-};
-
-// Hook สำหรับตรวจสอบสถานะ API
-export const useApiStatus = () => {
-  const [status, setStatus] = useState('checking');
-  const [statusData, setStatusData] = useState(null);
-
-  const checkStatus = useCallback(async () => {
-    try {
-      const result = await api.checkStatus();
-      setStatus(result.status);
-      setStatusData(result.data);
-    } catch (err) {
-      setStatus('error');
-      setStatusData({ error: err.message });
-    }
-  }, []);
-
-  useEffect(() => {
-    checkStatus();
-    
-    // Check status every 30 seconds
-    const interval = setInterval(checkStatus, 30000);
-    
-    return () => clearInterval(interval);
-  }, [checkStatus]);
-
-  return { status, statusData, checkStatus };
+  return { createActivity, loading, error };
 };
 
 // Hook รวมสำหรับ ChildDashboard
 export const useChildDashboardData = (childId = null) => {
-  const children = useChildren();
-  const goodBehaviors = useGoodBehaviors();
-  const badBehaviors = useBadBehaviors();
-  const rewards = useRewards();
+  const { children, loading: childrenLoading, error: childrenError, refetch: refetchChildren } = useChildren();
+  const { goodBehaviors, loading: goodLoading, error: goodError, refetch: refetchGood } = useGoodBehaviors();
+  const { badBehaviors, loading: badLoading, error: badError, refetch: refetchBad } = useBadBehaviors();
+  const { rewards, loading: rewardsLoading, error: rewardsError, refetch: refetchRewards } = useRewards();
 
   const [selectedChild, setSelectedChild] = useState(null);
 
-  // Set selected child when data loads
+  // เลือกเด็กเมื่อข้อมูลโหลดเสร็จ
   useEffect(() => {
-    if (children.data && !selectedChild) {
+    if (children.length > 0 && !selectedChild) {
       const child = childId 
-        ? children.data.find(c => c.Id === childId)
-        : children.data[0];
-      
-      if (child) {
-        setSelectedChild(child);
-      }
+        ? children.find(c => c.id === childId) || children[0]
+        : children[0];
+      setSelectedChild(child);
     }
-  }, [children.data, childId, selectedChild]);
+  }, [children, childId, selectedChild]);
 
-  const loading = children.loading || goodBehaviors.loading || badBehaviors.loading || rewards.loading;
-  const error = children.error || goodBehaviors.error || badBehaviors.error || rewards.error;
+  const loading = childrenLoading || goodLoading || badLoading || rewardsLoading;
+  const error = childrenError || goodError || badError || rewardsError;
 
   const refetchAll = () => {
-    children.refetch();
-    goodBehaviors.refetch();
-    badBehaviors.refetch();
-    rewards.refetch();
+    refetchChildren();
+    refetchGood();
+    refetchBad();
+    refetchRewards();
   };
 
   return {
-    children: children.data || [],
-    goodBehaviors: goodBehaviors.data || [],
-    badBehaviors: badBehaviors.data || [],
-    rewards: rewards.data || [],
+    children,
     selectedChild,
     setSelectedChild,
+    goodBehaviors,
+    badBehaviors,
+    rewards,
     loading,
     error,
-    refetchAll,
+    refetchAll
   };
 };
 
 // Hook รวมสำหรับ AdminDashboard
 export const useAdminDashboardData = () => {
-  const dashboard = useDashboard();
-  const children = useChildren();
-  const behaviors = useBehaviors();
-  const rewards = useRewards();
-  const activities = useActivities();
+  const { dashboardData, loading: dashLoading, error: dashError, refetch: refetchDash } = useDashboard();
+  const { goodBehaviors, loading: goodLoading, error: goodError, refetch: refetchGood } = useGoodBehaviors();
+  const { badBehaviors, loading: badLoading, error: badError, refetch: refetchBad } = useBadBehaviors();
+  const { rewards, loading: rewardsLoading, error: rewardsError, refetch: refetchRewards } = useRewards();
 
-  const loading = dashboard.loading || children.loading || behaviors.loading || rewards.loading || activities.loading;
-  const error = dashboard.error || children.error || behaviors.error || rewards.error || activities.error;
+  const loading = dashLoading || goodLoading || badLoading || rewardsLoading;
+  const error = dashError || goodError || badError || rewardsError;
 
   const refetchAll = () => {
-    dashboard.refetch();
-    children.refetch();
-    behaviors.refetch();
-    rewards.refetch();
-    activities.refetch();
+    refetchDash();
+    refetchGood();
+    refetchBad();
+    refetchRewards();
+  };
+
+  // สรุปสถิติ
+  const stats = {
+    totalChildren: dashboardData?.totalChildren || 0,
+    goodBehaviors: goodBehaviors.length,
+    badBehaviors: badBehaviors.length,
+    totalRewards: rewards.length
   };
 
   return {
-    dashboard: dashboard.data,
-    children: children.data || [],
-    behaviors: behaviors.data || [],
-    rewards: rewards.data || [],
-    activities: activities.data || [],
+    dashboardData,
+    goodBehaviors,
+    badBehaviors,
+    rewards,
+    stats,
     loading,
     error,
-    refetchAll,
+    refetchAll
   };
 };
-
-export default useApi;
