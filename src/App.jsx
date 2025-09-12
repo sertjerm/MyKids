@@ -1,14 +1,19 @@
-import React, { useState, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { Settings, Users, Baby, AlertCircle, CheckCircle } from 'lucide-react';
-import ChildDashboard from './pages/ChildDashboard';
-import AdminDashboard from './components/admin/AdminDashboard';
-import { useApiStatus } from './hooks/useApi';
- import './App.css';
+import React, { useState, useEffect } from "react";
+import {
+  BrowserRouter as Router,
+  Routes,
+  Route,
+  Navigate,
+} from "react-router-dom";
+import { Settings, Users, Baby, AlertCircle, CheckCircle } from "lucide-react";
+import ChildDashboard from "./pages/ChildDashboard";
+import AdminDashboard from "./components/admin/AdminDashboard";
+import { useApiStatus } from "./hooks/useApi";
+
 
 const App = () => {
-  const [currentView, setCurrentView] = useState('child');
-  const [selectedChild, setSelectedChild] = useState('C001');
+  const [currentView, setCurrentView] = useState("child");
+  const [selectedChild, setSelectedChild] = useState("C001");
   const { status, statusData, checkStatus } = useApiStatus();
 
   // Check API status on mount
@@ -21,44 +26,49 @@ const App = () => {
     <div className="fixed top-4 right-4 z-50">
       <div className="flex items-center gap-2">
         {/* API Status Indicator */}
-        <div className={`flex items-center gap-2 px-3 py-2 rounded-full text-sm font-medium ${
-          status === 'connected' 
-            ? 'bg-green-100 text-green-800 border border-green-200' 
-            : status === 'error'
-            ? 'bg-red-100 text-red-800 border border-red-200'
-            : 'bg-yellow-100 text-yellow-800 border border-yellow-200'
-        }`}>
-          {status === 'connected' ? (
+        <div
+          className={`flex items-center gap-2 px-3 py-2 rounded-full text-sm font-medium ${
+            status === "connected"
+              ? "bg-green-100 text-green-800 border border-green-200"
+              : status === "error"
+              ? "bg-red-100 text-red-800 border border-red-200"
+              : "bg-yellow-100 text-yellow-800 border border-yellow-200"
+          }`}
+        >
+          {status === "connected" ? (
             <CheckCircle className="w-4 h-4" />
           ) : (
             <AlertCircle className="w-4 h-4" />
           )}
           <span className="hidden sm:inline">
-            {status === 'connected' ? 'API เชื่อมต่อแล้ว' : 
-             status === 'error' ? 'API ขัดข้อง' : 'กำลังตรวจสอบ...'}
+            {status === "connected"
+              ? "API เชื่อมต่อแล้ว"
+              : status === "error"
+              ? "API ขัดข้อง"
+              : "กำลังตรวจสอบ..."}
           </span>
         </div>
 
         {/* View Toggle Buttons */}
         <div className="flex bg-white rounded-lg shadow-lg border overflow-hidden">
           <button
-            onClick={() => setCurrentView('child')}
+            onClick={() => setCurrentView("child")}
             className={`flex items-center gap-2 px-4 py-2 text-sm font-medium transition-colors ${
-              currentView === 'child'
-                ? 'bg-blue-600 text-white'
-                : 'text-gray-700 hover:bg-gray-50'
+              currentView === "child"
+                ? "bg-blue-600 text-white"
+                : "text-gray-700 hover:bg-gray-50"
             }`}
           >
             <Baby className="w-4 h-4" />
             <span className="hidden sm:inline">เด็ก</span>
           </button>
-          
+
           <button
-            onClick={() => setCurrentView('admin')}
+            onClick={() => setCurrentView("admin")}
             className={`flex items-center gap-2 px-4 py-2 text-sm font-medium transition-colors ${
-              currentView === 'admin'
-                ? 'bg-blue-600 text-white'
-                : 'text-gray-700 hover:bg-gray-50'
+              currentView === "admin"
+                ? "bg-blue-600 text-white"
+                : "text-gray-700 hover:bg-gray-50"
             }`}
           >
             <Settings className="w-4 h-4" />
@@ -95,12 +105,14 @@ const App = () => {
   );
 
   // API Connection Error
-  if (status === 'error' && !statusData) {
+  if (status === "error" && !statusData) {
     return (
       <div className="min-h-screen bg-red-50 flex items-center justify-center p-4">
         <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-6 text-center">
           <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
-          <h2 className="text-xl font-bold text-gray-900 mb-2">ไม่สามารถเชื่อมต่อ API ได้</h2>
+          <h2 className="text-xl font-bold text-gray-900 mb-2">
+            ไม่สามารถเชื่อมต่อ API ได้
+          </h2>
           <p className="text-gray-600 mb-4">
             กรุณาตรวจสอบการเชื่อมต่ออินเทอร์เน็ตและลองใหม่
           </p>
@@ -112,7 +124,7 @@ const App = () => {
               ตรวจสอบการเชื่อมต่อ
             </button>
             <div className="text-xs text-gray-500 mt-2">
-              API URL: {process.env.REACT_APP_API_URL}
+              API URL: {import.meta.env.VITE_API_URL}
             </div>
           </div>
         </div>
@@ -124,50 +136,41 @@ const App = () => {
     <Router>
       <div className="App">
         <Navigation />
-        
+
         <ErrorBoundary fallback={ErrorFallback}>
           <Routes>
             {/* Child Routes */}
-            <Route 
-              path="/child" 
-              element={<ChildDashboard childId={selectedChild} />} 
+            <Route
+              path="/child"
+              element={<ChildDashboard childId={selectedChild} />}
             />
-            <Route 
-              path="/child/:childId" 
-              element={<ChildDashboard />} 
-            />
-            
+            <Route path="/child/:childId" element={<ChildDashboard />} />
+
             {/* Admin Routes */}
-            <Route 
-              path="/admin" 
-              element={<AdminDashboard />} 
-            />
-            
+            <Route path="/admin" element={<AdminDashboard />} />
+
             {/* Default Route */}
-            <Route 
-              path="/" 
+            <Route
+              path="/"
               element={
-                currentView === 'admin' ? (
+                currentView === "admin" ? (
                   <Navigate to="/admin" replace />
                 ) : (
                   <Navigate to="/child" replace />
                 )
-              } 
+              }
             />
-            
+
             {/* Fallback Route */}
-            <Route 
-              path="*" 
-              element={<Navigate to="/" replace />} 
-            />
+            <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </ErrorBoundary>
 
         {/* Debug Info (Development Only) */}
-        {process.env.REACT_APP_DEBUG === 'true' && (
+        {import.meta.env.VITE_DEBUG === "true" && (
           <div className="fixed bottom-4 left-4 bg-black bg-opacity-75 text-white text-xs p-2 rounded font-mono">
-            <div>ENV: {process.env.REACT_APP_ENV}</div>
-            <div>API: {process.env.REACT_APP_API_URL}</div>
+            <div>ENV: {import.meta.env.VITE_ENV}</div>
+            <div>API: {import.meta.env.VITE_API_URL}</div>
             <div>Status: {status}</div>
             <div>View: {currentView}</div>
           </div>
@@ -189,14 +192,14 @@ class ErrorBoundary extends React.Component {
   }
 
   componentDidCatch(error, errorInfo) {
-    console.error('Error Boundary caught an error:', error, errorInfo);
+    console.error("Error Boundary caught an error:", error, errorInfo);
   }
 
   render() {
     if (this.state.hasError) {
-      return this.props.fallback({ 
-        error: this.state.error, 
-        resetError: () => this.setState({ hasError: false, error: null }) 
+      return this.props.fallback({
+        error: this.state.error,
+        resetError: () => this.setState({ hasError: false, error: null }),
       });
     }
 

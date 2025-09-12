@@ -3,27 +3,29 @@ import react from '@vitejs/plugin-react'
 
 export default defineConfig({
   plugins: [react()],
-  base: '/my-kids/', // เปลี่ยนให้ตรงกับ deployment path
-  build: {
-    outDir: 'dist',
-    assetsDir: 'assets',
-    sourcemap: false,
-    minify: 'esbuild',
-    rollupOptions: {
-      output: {
-        manualChunks: {
-          vendor: ['react', 'react-dom'],
-          router: ['react-router-dom']
-        }
+  base: './',
+  server: {
+    proxy: {
+      '/api': {
+        target: 'https://sertjerm.com/my-kids-api',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api/, '/api.php'),
+        configure: (proxy, options) => {
+          proxy.on('error', (err, req, res) => {
+            console.log('proxy error', err);
+          });
+          proxy.on('proxyReq', (proxyReq, req, res) => {
+            console.log('Sending Request to the Target:', req.method, req.url);
+          });
+          proxy.on('proxyRes', (proxyRes, req, res) => {
+            console.log('Received Response from the Target:', proxyRes.statusCode, req.url);
+          });
+        },
       }
     }
   },
-  server: {
-    port: 5173,
-    host: true
-  },
-  preview: {
-    port: 4173,
-    host: true
+  build: {
+    outDir: 'dist',
+    assetsDir: 'assets'
   }
 })
