@@ -1,0 +1,11 @@
+RewriteEngine On
+
+# ✅ ให้ OPTIONS ผ่านเฉย ๆ (ไม่ redirect)
+RewriteCond %{REQUEST_METHOD} =OPTIONS
+RewriteRule ^ - [L]
+
+# API routing (เหมือนเดิม)
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteCond %{REQUEST_URI} !^/(install\.php|test\.php|debug\.php)$
+RewriteRule ^ api.php [QSA,L]

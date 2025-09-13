@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="th">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>MyKids API Tester</title>
+    <style>
+      :root {
+        --bg: #0b1220;
+        --panel: #0f172a;
+        --muted: #94a3b8;
+        --accent: #38bdf8;
+        --ok: #22c55e;
+        --err: #ef4444;
+      }
+      * {
+        box-sizing: border-box;
+        font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto;
+      }
+      body {
+        margin: 0;
+        background: linear-gradient(180deg, #0b1220, #0a1326);
+        color: #e5e7eb;
+      }
+      header {
+        position: sticky;
+        top: 0;
+        background: #0b1220cc;
+        backdrop-filter: saturate(180%) blur(6px);
+        padding: 12px 16px;
+        border-bottom: 1px solid #1f2937;
+      }
+      h1 {
+        font-size: 20px;
+        margin: 0;
+      }
+      main {
+        max-width: 1100px;
+        margin: 20px auto;
+        padding: 0 16px 32px;
+      }
+      .row {
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+        align-items: center;
+      }
+      .base {
+        background: #111827;
+        border: 1px solid #1f2937;
+        border-radius: 12px;
+        padding: 12px;
+      }
+      input,
+      select,
+      textarea {
+        background: #0f172a;
+        border: 1px solid #1f2937;
+        color: #e5e7eb;
+        border-radius: 10px;
+        padding: 10px 12px;
+        outline: none;
+        width: 100%;
+      }
+      input:focus,
+      select:focus,
+      textarea:focus {
+        border-color: #38bdf8;
+      }
+      label {
+        font-size: 12px;
+        color: #94a3b8;
+        display: block;
+        margin-bottom: 6px;
+      }
+      button {
+        background: #111827;
+        border: 1px solid #374151;
+        color: #e5e7eb;
+        border-radius: 10px;
+        padding: 10px 14px;
+        cursor: pointer;
+      }
+      button.primary {
+        background: #0369a1;
+        border-color: #0ea5e9;
+      }
+      button:hover {
+        filter: brightness(1.05);
+      }
+      fieldset {
+        border: 1px solid #1f2937;
+        border-radius: 12px;
+        margin: 16px 0;
+        padding: 16px;
+      }
+      legend {
+        color: #a5b4fc;
+        padding: 0 6px;
+        font-size: 14px;
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(12, 1fr);
+        gap: 12px;
+      }
+      .col-3 {
+        grid-column: span 3;
+      }
+      .col-4 {
+        grid-column: span 4;
+      }
+      .col-6 {
+        grid-column: span 6;
+      }
+      .col-8 {
+        grid-column: span 8;
+      }
+      .col-12 {
+        grid-column: span 12;
+      }
+      .out {
+        white-space: pre-wrap;
+        background: #0b1220;
+        border: 1px dashed #334155;
+        border-radius: 12px;
+        padding: 12px;
+        min-height: 120px;
+      }
+      .tag {
+        display: inline-block;
+        padding: 2px 8px;
+        background: #0b1220;
+        border: 1px solid #1f2937;
+        border-radius: 999px;
+        color: #94a3b8;
+        font-size: 12px;
+        margin-right: 6px;
+      }
+      .ok {
+        color: var(--ok);
+      }
+      .err {
+        color: var(--err);
+      }
+      .flex {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        flex-wrap: wrap;
+      }
+      .mt {
+        margin-top: 10px;
+      }
+      .mb {
+        margin-bottom: 10px;
+      }
+      small {
+        color: #94a3b8;
+      }
+    </style>
+  </head>
+  <body>
+    <header class="row">
+      <h1>MyKids API Tester</h1>
+    </header>
+
+    <main>
+      <section class="base">
+        <div class="row">
+          <div style="flex: 1">
+            <label>Base URL</label>
+            <input
+              id="baseUrl"
+              value="https://sertjerm.com/my-kids-api/api.php"
+            />
+          </div>
+          <div>
+            <label>&nbsp;</label>
+            <button class="primary" onclick="ping()">GET /health</button>
+          </div>
+          <div class="flex">
+            <span id="pingStatus" class="tag">status: unknown</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="base" style="margin-top: 16px">
+        <div class="grid">
+          <div class="col-12">
+            <strong>Request</strong> <small id="reqMeta" class="tag"></small>
+          </div>
+          <div class="col-3">
+            <label>Method</label>
+            <select id="method">
+              <option>GET</option>
+              <option>POST</option>
+              <option>PUT</option>
+              <option>DELETE</option>
+            </select>
+          </div>
+          <div class="col-9">
+            <label>Path (ต่อท้าย Base URL)</label>
+            <input
+              id="path"
+              style="width: 200px"
+              placeholder="/children หรือ /children/C001"
+            />
+          </div>
+          <div class="col-12">
+            <label>JSON Body (ถ้ามี)</label>
+            <textarea
+              id="body"
+              rows="6"
+              placeholder='{"Name":"น้องโฟกัส","Age":8}'
+            ></textarea>
+          </div>
+          <div class="col-12 flex">
+            <button class="primary" onclick="send()">Send</button>
+            <button onclick="fillExample('children','POST')">
+              ตัวอย่าง Children.POST
+            </button>
+            <button onclick="fillExample('children','PUT')">
+              Children.PUT
+            </button>
+            <button onclick="fillExample('behaviors','POST')">
+              Behaviors.POST
+            </button>
+            <button onclick="fillExample('rewards','POST')">
+              Rewards.POST
+            </button>
+            <button onclick="fillExample('daily','POST')">Daily.POST</button>
+            <small>มี cURL แสดงให้คัดลอกด้านล่าง</small>
+          </div>
+          <div class="col-12">
+            <label>cURL</label>
+            <div id="curl" class="out"></div>
+          </div>
+          <div class="col-12">
+            <label>Response</label>
+            <div id="out" class="out"></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="base" style="margin-top: 16px">
+        <fieldset>
+          <legend>Shortcuts</legend>
+          <div class="flex">
+            <button onclick="quick('GET','/children')">List Children</button>
+            <button onclick="quick('GET','/behaviors')">List Behaviors</button>
+            <button onclick="quick('GET','/rewards')">List Rewards</button>
+            <button onclick="quick('GET','/daily?child=C001')">
+              List Daily (C001)
+            </button>
+          </div>
+        </fieldset>
+
+        <fieldset>
+          <legend>Create</legend>
+          <div class="flex">
+            <button onclick="fillExample('children','POST');send()">
+              Create Child
+            </button>
+            <button onclick="fillExample('behaviors','POST');send()">
+              Create Behavior
+            </button>
+            <button onclick="fillExample('rewards','POST');send()">
+              Create Reward
+            </button>
+            <button onclick="fillExample('daily','POST');send()">
+              Log Daily
+            </button>
+          </div>
+        </fieldset>
+      </section>
+
+      <p class="mt">
+        <small
+          >Tip: ถ้าเปิดไฟล์นี้จาก file:// บางเบราว์เซอร์จะบล็อก CORS —
+          แนะนำเปิดผ่าน dev server (เช่น VSCode Live Server) หรือวางบน
+          <code>http://localhost:3000</code>/<code>5173</code> ซึ่งอนุญาตผ่าน
+          CORS แล้ว</small
+        >
+      </p>
+    </main>
+
+    <script>
+      const $ = (id) => document.getElementById(id);
+      const json = (o) => JSON.stringify(o, null, 2);
+
+      async function ping() {
+        const base = $("baseUrl").value.trim().replace(/\/+$/, "");
+        const url = base + "/health";
+        $("pingStatus").textContent = "checking...";
+        try {
+          const r = await fetch(url, { method: "GET" });
+          const t = await r.json();
+          $("pingStatus").textContent =
+            "status: " +
+            (r.ok ? "OK" : "ERR") +
+            " / children_active=" +
+            (t.children_active ?? "-");
+        } catch (e) {
+          $("pingStatus").textContent = "status: ERR";
+        }
+      }
+
+      function buildCurl(method, url, body) {
+        let c = `curl -X ${method} '${url}'`;
+        if (body) {
+          c += ` \\\n  -H 'Content-Type: application/json' \\\n  -d '${JSON.stringify(
+            JSON.parse(body)
+          )}'`;
+        }
+        return c;
+      }
+
+      async function send() {
+        const base = $("baseUrl").value.trim().replace(/\/+$/, "");
+        const path = $("path").value.trim().replace(/^\/?/, "/");
+        const method = $("method").value;
+        const url = base + path;
+
+        let bodyText = $("body").value.trim();
+        let options = { method, headers: {} };
+
+        if (method === "POST" || method === "PUT") {
+          if (bodyText) {
+            options.headers["Content-Type"] = "application/json";
+            options.body = bodyText;
+          } else {
+            options.headers["Content-Type"] = "application/json";
+            options.body = "{}";
+          }
+        }
+
+        $("curl").textContent = buildCurl(method, url, options.body);
+        $("reqMeta").textContent = `${method} ${path}`;
+        $("out").textContent = "Loading...";
+
+        try {
+          const res = await fetch(url, options);
+          const ct = res.headers.get("content-type") || "";
+          let data;
+          if (ct.includes("application/json")) data = await res.json();
+          else data = await res.text();
+
+          $("out").textContent = typeof data === "string" ? data : json(data);
+        } catch (err) {
+          $("out").textContent = "ERROR: " + err.message;
+        }
+      }
+
+      function quick(method, path) {
+        $("method").value = method;
+        $("path").value = path;
+        $("body").value = "";
+        send();
+      }
+
+      function fillExample(resource, action) {
+        const b = $("baseUrl").value.trim().replace(/\/+$/, "");
+        switch (resource) {
+          case "children":
+            if (action === "POST") {
+              $("method").value = "POST";
+              $("path").value = "/children";
+              $("body").value = json({
+                Name: "น้องโฟกัส",
+                Nickname: "โฟกัส",
+                Age: 8,
+              });
+            } else if (action === "PUT") {
+              $("method").value = "PUT";
+              $("path").value = "/children/C001";
+              $("body").value = json({ Name: "น้องโฟกัส (แก้ไข)", Age: 9 });
+            }
+            break;
+          case "behaviors":
+            $("method").value = "POST";
+            $("path").value = "/behaviors";
+            $("body").value = json({
+              Name: "อ่านหนังสือ",
+              Points: 5,
+              Type: "Good",
+              Category: "การเรียน",
+              Color: "#22c55e",
+              IsRepeatable: 0,
+            });
+            break;
+          case "rewards":
+            $("method").value = "POST";
+            $("path").value = "/rewards";
+            $("body").value = json({
+              Name: "ดู YouTube",
+              PointsRequired: 15,
+              Description: "หักคะแนน",
+            });
+            break;
+          case "daily":
+            $("method").value = "POST";
+            $("path").value = "/daily";
+            const d = new Date();
+            const ymd = d.toISOString().slice(0, 10);
+            $("body").value = json({
+              ChildId: "C001",
+              ItemId: "B004",
+              ItemType: "Behavior",
+              Note: "บันทึกจาก Tester",
+              ActivityDate: ymd,
+            });
+            break;
+        }
+      }
+    </script>
+  </body>
+</html>

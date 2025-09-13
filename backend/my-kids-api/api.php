@@ -414,6 +414,64 @@ try {
             }
             break;
             
+        case 'score':
+        case 'points':
+            if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+                $input = json_decode(file_get_contents('php://input'), true);
+
+                if (!$input || empty($input['ChildId']) || !isset($input['Points'])) {
+                    http_response_code(400);
+                    echo json_encode(['error' => 'Missing ChildId or Points'], JSON_UNESCAPED_UNICODE);
+                    exit();
+                }
+
+                if ($dbConnection && $pdo) {
+                    try {
+                        // สร้าง ItemId เป็น null หรือ custom เช่น 'MANUAL'
+                        $stmt = $pdo->prepare("INSERT INTO DailyActivity (ChildId, ItemId, ActivityType, Count, Note, ActivityDate, CreatedAt) VALUES (?, ?, ?, ?, ?, ?, NOW())");
+                        $result = $stmt->execute([
+                            $input['ChildId'],
+                            null, // หรือ 'MANUAL'
+                            'Score',
+                            $input['Points'],
+                            $input['Note'] ?? '',
+                            $input['ActivityDate'] ?? date('Y-m-d')
+                        ]);
+
+                        if ($result) {
+                            echo json_encode([
+                                'success' => true,
+                                'message' => 'Score recorded successfully',
+                                'data' => [
+                                    'ChildId' => $input['ChildId'],
+                                    'Points' => $input['Points'],
+                                    'Note' => $input['Note'] ?? '',
+                                    'ActivityDate' => $input['ActivityDate'] ?? date('Y-m-d'),
+                                    'CreatedAt' => date('Y-m-d H:i:s')
+                            ]
+                            ], JSON_UNESCAPED_UNICODE);
+                        } else {
+                            http_response_code(500);
+                            echo json_encode(['error' => 'Failed to record score'], JSON_UNESCAPED_UNICODE);
+                        }
+                    } catch (Exception $e) {
+                        error_log("Record Score Error: " . $e->getMessage());
+                        http_response_code(500);
+                        echo json_encode(['error' => 'Database error: ' . $e->getMessage()], JSON_UNESCAPED_UNICODE);
+                    }
+                } else {
+                    http_response_code(503);
+                    echo json_encode([
+                        'error' => 'Database not connected',
+                        'db_error' => $dbError
+                    ], JSON_UNESCAPED_UNICODE);
+                }
+            } else {
+                http_response_code(405);
+                echo json_encode(['error' => 'Method not allowed'], JSON_UNESCAPED_UNICODE);
+            }
+            break;
+            
         default:
             echo json_encode([
                 'message' => 'MyKids API v3.1.1',
