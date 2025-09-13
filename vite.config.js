@@ -1,7 +1,9 @@
+// vite.config.js
+// แก้ไข - ลบ proxy configuration เพราะใช้การเชื่อมต่อโดยตรงแล้ว
+
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 
-// vite.config.js - แก้ไขตรงนี้
 export default defineConfig({
   plugins: [react()],
 
@@ -28,29 +30,18 @@ export default defineConfig({
     port: 5173,
     host: true,
     open: "/mykids/", // เปิด browser ที่ path ที่ถูกต้อง
-    proxy: {
-      "/api": {
-        target: "https://sertjerm.com/my-kids-api",
-        changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api/, "/api.php"),
-        configure: (proxy) => {
-          proxy.on("error", (err, req, res) => {
-            console.log("🔥 Proxy error:", err);
-          });
-          proxy.on("proxyReq", (proxyReq, req, res) => {
-            console.log("📤 Sending Request:", req.method, req.url);
-          });
-          proxy.on("proxyRes", (proxyRes, req, res) => {
-            console.log("📥 Received Response:", proxyRes.statusCode, req.url);
-          });
-        },
-      },
-    },
+    cors: true, // เปิด CORS สำหรับ development
+    // ลบ proxy configuration เพราะใช้การเชื่อมต่อโดยตรง
   },
 
   // สำหรับ development
   define: {
     __DEV__: process.env.NODE_ENV === "development",
     __PROD__: process.env.NODE_ENV === "production",
+  },
+
+  // เพิ่ม optimizeDeps เพื่อ pre-bundle dependencies ที่จำเป็น
+  optimizeDeps: {
+    include: ["axios", "react", "react-dom", "react-router-dom", "lucide-react"],
   },
 });

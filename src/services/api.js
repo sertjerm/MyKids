@@ -1,4 +1,5 @@
-// src/services/api.js - Fixed version for MyKids API
+// src/services/api.js
+// แก้ไขการบันทึกข้อมูลให้ถูกต้อง - รองรับ EarnedPoints และ ActivityType ตาม Database Schema
 
 import axios from "axios";
 
@@ -13,21 +14,38 @@ const apiCall = async (endpoint, method = "GET", data = null) => {
   const url = endpoint ? `${API_BASE_URL}?${endpoint}` : API_BASE_URL;
 
   try {
+    console.log(`📤 ${method} ${url}`, data ? { data } : '');
+
     const response = await axios({
       url,
       method,
       data: method !== "GET" ? data : undefined,
       headers: { "Content-Type": "application/json" },
+      timeout: 10000, // 10 วินาที
     });
 
-    // axios จะคืนข้อมูลใน response.data
-    if (response.data.error) {
+    console.log(`📥 Response:`, response.data);
+
+    // ตรวจสอบ response format
+    if (response.data && response.data.error) {
       throw new Error(response.data.message || response.data.error);
     }
     return response.data;
   } catch (error) {
-    console.error("API Error:", error);
-    throw error.response?.data?.message || error.message;
+    console.error("❌ API Error:", error);
+    
+    // Handle different error types
+    if (error.response) {
+      // Server responded with error status
+      const errorMsg = error.response.data?.message || error.response.data?.error || `HTTP ${error.response.status}`;
+      throw new Error(errorMsg);
+    } else if (error.request) {
+      // Request was made but no response
+      throw new Error("ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์ได้");
+    } else {
+      // Something else happened
+      throw new Error(error.message || "เกิดข้อผิดพลาดไม่ทราบสาเหตุ");
+    }
   }
 };
 
@@ -71,21 +89,35 @@ export const rewardsAPI = {
   getAll: () => apiCall("rewards"),
 };
 
-// Activities API - สำหรับบันทึกกิจกรรม (ปรับปรุงใหม่)
+// Activities API - *** แก้ไขใหม่ให้ตรงกับ Database Schema ***
 export const activitiesAPI = {
   // ดึงกิจกรรมทั้งหมด
   getAll: () => apiCall("activities"),
 
-  // บันทึกกิจกรรมใหม่ - รองรับ API ใหม่
-  create: (data) =>
-    apiCall("activities", "POST", {
+  // บันทึกกิจกรรมใหม่ - ปรับให้ตรงกับ Database Schema
+  create: (data) => {
+    // ตรวจสอบข้อมูลที่จำเป็น
+    if (!data.childId || !data.itemId) {
+      throw new Error("ต้องระบุ childId และ itemId");
+    }
+
+    // คำนวณ EarnedPoints จาก Points และ Count
+    const earnedPoints = data.earnedPoints || ((data.points || 0) * (data.count || 1));
+
+    const payload = {
       ChildId: data.childId,
       ItemId: data.itemId,
-      ActivityType: data.activityType, // ใช้ 'Good', 'Bad', 'Reward' ตรงกับ database enum
+      ActivityType: data.activityType, // 'Good', 'Bad', 'Reward'
       Count: data.count || 1,
+      EarnedPoints: earnedPoints, // *** เพิ่มฟิลด์สำคัญนี้ ***
       Note: data.note || "",
       ActivityDate: data.activityDate || new Date().toISOString().split("T")[0],
-    }),
+    };
+
+    console.log("🎯 Creating activity with payload:", payload);
+    
+    return apiCall("activities", "POST", payload);
+  },
 
   // เพิ่มฟังก์ชันบันทึกกิจกรรมเดียว (alias)
   record: function(data) {
@@ -125,6 +157,8 @@ export const apiUtils = {
     avatar: child.AvatarPath || "👶",
     todayPoints: child.TodayPoints || 0,
     totalPoints: child.TotalPoints || 0,
+    earnedPoints: child.EarnedPoints || 0,
+    deductedPoints: child.DeductedPoints || 0,
     isActive: child.IsActive,
   }),
 
@@ -133,6 +167,9 @@ export const apiUtils = {
     name: behavior.Name,
     points: behavior.Points,
     type: behavior.Type,
+    color: behavior.Color,
+    category: behavior.Category,
+    isRepeatable: behavior.IsRepeatable,
     isActive: behavior.IsActive,
   }),
 
@@ -140,6 +177,8 @@ export const apiUtils = {
     id: reward.Id,
     name: reward.Name,
     cost: reward.Cost,
+    color: reward.Color,
+    category: reward.Category,
     isActive: reward.IsActive,
   }),
 
@@ -158,15 +197,41 @@ export const apiUtils = {
   }),
 
   // ฟังก์ชันจัดรูปแบบข้อมูลกิจกรรม - ใช้งานใน frontend
-  formatActivityData: (childId, itemId, activityType, count = 1, note = "") => {
+  formatActivityData: (childId, itemId, activityType, points = 0, count = 1, note = "") => {
     return {
       childId,
       itemId,
       activityType, // 'Good', 'Bad', 'Reward'
+      points,
       count,
       note,
+      earnedPoints: points * count, // *** คำนวณ EarnedPoints ***
       activityDate: new Date().toISOString().split("T")[0],
     };
+  },
+
+  // ฟังก์ชันพิเศษสำหรับสร้างข้อมูลกิจกรรมจากพฤติกรรม
+  createActivityFromBehavior: (childId, behavior, count = 1, note = "") => {
+    return apiUtils.formatActivityData(
+      childId,
+      behavior.id,
+      behavior.type, // 'Good' หรือ 'Bad'
+      behavior.points,
+      count,
+      note
+    );
+  },
+
+  // ฟังก์ชันพิเศษสำหรับสร้างข้อมูลกิจกรรมจากรางวัล
+  createActivityFromReward: (childId, reward, count = 1, note = "") => {
+    return apiUtils.formatActivityData(
+      childId,
+      reward.id,
+      'Reward',
+      -Math.abs(reward.cost), // รางวัลเป็นลบเสมอ
+      count,
+      note
+    );
   },
 
   // บันทึกกิจกรรมหลายรายการ - ใช้งานใน frontend
@@ -207,6 +272,17 @@ export const apiUtils = {
   // คำนวณคะแนนจากจำนวนครั้ง
   calculateEarnedPoints: (points, count) => {
     return (points || 0) * (count || 1);
+  },
+
+  // *** ฟังก์ชันใหม่สำหรับการ Debug ***
+  debugActivity: (activityData) => {
+    console.log("🔍 Debug Activity Data:", {
+      original: activityData,
+      hasChildId: !!activityData.childId,
+      hasItemId: !!activityData.itemId,
+      hasActivityType: !!activityData.activityType,
+      calculatedEarnedPoints: apiUtils.calculateEarnedPoints(activityData.points, activityData.count)
+    });
   }
 };
 

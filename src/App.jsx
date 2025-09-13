@@ -1,4 +1,5 @@
-// src/App.jsx - อัปเดตใช้ API ใหม่และ Hooks ใหม่
+// src/App.jsx
+// อัปเดตใช้ API ใหม่และ Hooks ใหม่ - รองรับ ActivityDebugComponent
 
 import React, { useState, useEffect } from "react";
 import {
@@ -252,9 +253,9 @@ const App = () => {
           </Routes>
         )}
 
-        {/* Debug Info - only show in development */}
+        {/* Enhanced Debug Info - only show in development */}
         {import.meta.env.DEV && (
-          <div className="fixed bottom-4 left-4 bg-black bg-opacity-75 text-white text-xs p-3 rounded-lg font-mono z-50 max-w-sm">
+          <div className="fixed bottom-4 left-4 bg-black bg-opacity-75 text-white text-xs p-3 rounded-lg font-mono z-40 max-w-sm">
             <div className="text-green-400 font-bold mb-2">🔍 Debug Info</div>
             <div>Mode: {import.meta.env.MODE}</div>
             <div>Prod: {import.meta.env.PROD ? 'Yes' : 'No'}</div>
@@ -263,6 +264,13 @@ const App = () => {
             <div>View: {currentView}</div>
             <div>Child: {selectedChild}</div>
             <div>Time: {new Date().toLocaleTimeString('th-TH')}</div>
+            {/* แสดงข้อมูลเพิ่มเติมเมื่อมี error */}
+            {statusData?.error && (
+              <div className="mt-2 p-2 bg-red-800 bg-opacity-50 rounded">
+                <div className="text-red-300 font-semibold">API Error:</div>
+                <div className="text-red-100 text-xs">{statusData.error}</div>
+              </div>
+            )}
           </div>
         )}
       </div>
