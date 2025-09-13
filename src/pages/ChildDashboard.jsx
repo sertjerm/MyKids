@@ -1,31 +1,114 @@
-// src/pages/ChildDashboard.jsx - Connected to Real API
+// src/pages/ChildDashboard.jsx - ปรับปรุงใช้ API ใหม่
 
 import React, { useState, useEffect } from 'react';
-import { Star, CheckCircle, XCircle, Gift, Plus, Minus, Save, RefreshCw, AlertCircle, Loader2 } from 'lucide-react';
-import { useChildDashboardData, useCreateActivity } from '../hooks/useApi';
+import { useParams } from 'react-router-dom';
+import { 
+  Star, CheckCircle, XCircle, Gift, Plus, Minus, Save, RefreshCw, 
+  AlertCircle, Loader2, Users, Home
+} from 'lucide-react';
+
+// Import API ใหม่
+import api, { API_CONFIG } from '../services/api.js';
 
 const ChildDashboard = ({ childId: propChildId }) => {
-  // ใช้ hook สำหรับดึงข้อมูลจาก API จริง
-  const {
-    children,
-    selectedChild,
-    setSelectedChild,
-    goodBehaviors,
-    badBehaviors,
-    rewards,
-    loading,
-    error,
-    refetchAll
-  } = useChildDashboardData(propChildId);
+  // Get childId from URL params หรือจาก props
+  const { childId: urlChildId } = useParams();
+  const childId = propChildId || urlChildId;
 
-  // Hook สำหรับบันทึกกิจกรรม
-  const { createActivity, loading: saving, error: saveError } = useCreateActivity();
-
-  // State สำหรับ UI
-  const [activeTab, setActiveTab] = useState('good');
+  // States
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [children, setChildren] = useState([]);
+  const [selectedChild, setSelectedChild] = useState(null);
+  const [goodBehaviors, setGoodBehaviors] = useState([]);
+  const [badBehaviors, setBadBehaviors] = useState([]);
+  const [rewards, setRewards] = useState([]);
   const [behaviorCounts, setBehaviorCounts] = useState({});
+  const [error, setError] = useState(null);
+  const [activeTab, setActiveTab] = useState('good');
+  
+  // States สำหรับแสดงข้อมูล
   const [currentPoints, setCurrentPoints] = useState(0);
   const [todayDate] = useState(new Date().toLocaleDateString('th-TH'));
+
+  // โหลดข้อมูลทั้งหมด
+  const loadChildDashboardData = async () => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      console.log('🔄 Loading child dashboard data...');
+
+      // โหลดข้อมูลพร้อมกัน
+      const [
+        dashboardResponse,
+        childrenResponse,
+        goodBehaviorsResponse,
+        badBehaviorsResponse,
+        rewardsResponse
+      ] = await Promise.all([
+        api.dashboard.getSummary(),
+        api.children.getAll(),
+        api.behaviors.getGood(),
+        api.behaviors.getBad(),
+        api.rewards.getAll()
+      ]);
+
+      console.log('📊 Child API responses:', {
+        dashboard: dashboardResponse,
+        children: childrenResponse,
+        goodBehaviors: goodBehaviorsResponse,
+        badBehaviors: badBehaviorsResponse,
+        rewards: rewardsResponse
+      });
+
+      // แปลงข้อมูลให้เป็น format ที่ frontend ใช้
+      const transformedChildren = Array.isArray(childrenResponse)
+        ? childrenResponse.map(api.utils.transformChild)
+        : dashboardResponse?.children?.map(api.utils.transformChild) || [];
+
+      const transformedGoodBehaviors = Array.isArray(goodBehaviorsResponse)
+        ? goodBehaviorsResponse.map(api.utils.transformBehavior)
+        : [];
+
+      const transformedBadBehaviors = Array.isArray(badBehaviorsResponse)
+        ? badBehaviorsResponse.map(api.utils.transformBehavior)
+        : [];
+
+      const transformedRewards = Array.isArray(rewardsResponse)
+        ? rewardsResponse.map(api.utils.transformReward)
+        : [];
+
+      // ตั้งค่าข้อมูล
+      setChildren(transformedChildren);
+      setGoodBehaviors(transformedGoodBehaviors);
+      setBadBehaviors(transformedBadBehaviors);
+      setRewards(transformedRewards);
+
+      // เลือกเด็ก - ถ้ามี childId ที่ส่งมาให้เลือก หรือเลือกคนแรก
+      const targetChild = childId 
+        ? transformedChildren.find(c => c.id === childId)
+        : transformedChildren[0];
+      
+      if (targetChild) {
+        setSelectedChild(targetChild);
+        setCurrentPoints(targetChild.totalPoints || 0);
+      }
+
+      console.log('✅ Child dashboard data loaded successfully');
+
+    } catch (err) {
+      console.error('❌ Error loading child dashboard data:', err);
+      setError(`ไม่สามารถโหลดข้อมูลได้: ${err.message || err}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // โหลดข้อมูลเมื่อ component mount
+  useEffect(() => {
+    loadChildDashboardData();
+  }, [childId]);
 
   // อัปเดตคะแนนเมื่อเลือกเด็กใหม่
   useEffect(() => {
@@ -35,18 +118,17 @@ const ChildDashboard = ({ childId: propChildId }) => {
     }
   }, [selectedChild]);
 
+  // ฟังก์ชันรีเฟรชข้อมูล
+  const refetchAll = async () => {
+    await loadChildDashboardData();
+    setBehaviorCounts({}); // รีเซ็ตการนับ
+  };
+
   // ฟังก์ชันสำหรับอัปเดตจำนวนพฤติกรรม
   const updateBehaviorCount = (behaviorId, change) => {
     setBehaviorCounts(prev => {
-      const newCount = Math.max(0, (prev[behaviorId] || 0) + change);
-      
-      // หาพฤติกรรมนี้เพื่อดูคะแนน
-      const behavior = [...goodBehaviors, ...badBehaviors].find(b => b.id === behaviorId);
-      
-      if (behavior) {
-        setCurrentPoints(prevPoints => prevPoints + (change * behavior.points));
-      }
-      
+      const currentCount = prev[behaviorId] || 0;
+      const newCount = Math.max(0, currentCount + change);
       return {
         ...prev,
         [behaviorId]: newCount
@@ -54,26 +136,56 @@ const ChildDashboard = ({ childId: propChildId }) => {
     });
   };
 
-  // ฟังก์ชันสำหรับบันทึกกิจกรรม
+  // บันทึกกิจกรรมใหม่ - ใช้ API ใหม่
+  const createActivity = async (activityData) => {
+    try {
+      const result = await api.activities.create(activityData);
+      console.log('Activity created:', result);
+      return result;
+    } catch (error) {
+      console.error('Error creating activity:', error);
+      throw error;
+    }
+  };
+
+  // ฟังก์ชันสำหรับบันทึกกิจกรรมทั้งหมด
   const saveActivities = async () => {
     if (!selectedChild) {
       alert('กรุณาเลือกเด็กก่อน');
       return;
     }
 
+    setSaving(true);
+    setError(null);
+
     try {
       const activities = [];
       
-      // สร้างรายการกิจกรรมที่จะบันทึก
-      Object.entries(behaviorCounts).forEach(([behaviorId, count]) => {
+      // สร้างรายการกิจกรรมจากพฤติกรรมดี
+      goodBehaviors.forEach(behavior => {
+        const count = behaviorCounts[behavior.id];
         if (count > 0) {
-          activities.push({
-            childId: selectedChild.id,
-            itemId: behaviorId,
-            activityType: 'Behavior',
-            count: count,
-            note: `บันทึกจาก Child Dashboard`
-          });
+          activities.push(api.utils.formatActivityData(
+            selectedChild.id,
+            behavior.id,
+            API_CONFIG.ACTIVITY_TYPES.GOOD,
+            count,
+            `บันทึกจาก Child Dashboard: ${behavior.name} ${count} ครั้ง`
+          ));
+        }
+      });
+
+      // สร้างรายการกิจกรรมจากพฤติกรรมไม่ดี
+      badBehaviors.forEach(behavior => {
+        const count = behaviorCounts[behavior.id];
+        if (count > 0) {
+          activities.push(api.utils.formatActivityData(
+            selectedChild.id,
+            behavior.id,
+            API_CONFIG.ACTIVITY_TYPES.BAD,
+            count,
+            `บันทึกจาก Child Dashboard: ${behavior.name} ${count} ครั้ง`
+          ));
         }
       });
 
@@ -82,22 +194,104 @@ const ChildDashboard = ({ childId: propChildId }) => {
         return;
       }
 
-      // บันทึกทีละกิจกรรม
-      for (const activity of activities) {
-        await createActivity(activity);
+      console.log('บันทึกกิจกรรม:', activities);
+
+      // บันทึกหลายกิจกรรมพร้อมกัน
+      const results = await api.utils.recordMultipleActivities(activities);
+      
+      // ตรวจสอบผลลัพธ์
+      const successCount = results.filter(r => r.success).length;
+      const failCount = results.filter(r => !r.success).length;
+
+      if (failCount === 0) {
+        alert(`✅ บันทึกสำเร็จ ${successCount} กิจกรรม!`);
+        
+        // รีเซ็ตการนับและรีเฟรชข้อมูล
+        setBehaviorCounts({});
+        await refetchAll();
+        
+      } else {
+        console.error('Some activities failed:', results.filter(r => !r.success));
+        alert(`⚠️ บันทึกสำเร็จ ${successCount} กิจกรรม, ล้มเหลว ${failCount} กิจกรรม`);
+        
+        // รีเฟรชข้อมูลแม้จะมีบางส่วนล้มเหลว
+        await refetchAll();
       }
 
-      alert(`บันทึกสำเร็จ ${activities.length} กิจกรรม!`);
-      
-      // รีเซ็ตการนับและรีเฟรชข้อมูล
-      setBehaviorCounts({});
-      refetchAll();
-      
     } catch (error) {
       console.error('บันทึกกิจกรรมล้มเหลว:', error);
-      alert('บันทึกล้มเหลว: ' + error.message);
+      setError('บันทึกล้มเหลว: ' + error.message);
+    } finally {
+      setSaving(false);
     }
   };
+
+  // แลกรางวัล - ใช้ API ใหม่
+  const redeemReward = async (reward) => {
+    if (!selectedChild) {
+      alert('กรุณาเลือกเด็กก่อน');
+      return;
+    }
+
+    const currentTotalPoints = selectedChild.totalPoints || 0;
+    
+    if (currentTotalPoints < reward.cost) {
+      alert(`❌ คะแนนไม่พอ! ต้องการ ${reward.cost} คะแนน แต่มีอยู่ ${currentTotalPoints} คะแนน`);
+      return;
+    }
+
+    if (!confirm(`ต้องการแลกรางวัล "${reward.name}" ด้วย ${reward.cost} คะแนนหรือไม่?`)) {
+      return;
+    }
+
+    try {
+      const activityData = api.utils.formatActivityData(
+        selectedChild.id,
+        reward.id,
+        API_CONFIG.ACTIVITY_TYPES.REWARD,
+        1,
+        `แลกรางวัล: ${reward.name}`
+      );
+
+      const result = await api.activities.create(activityData);
+      
+      if (result.success) {
+        alert(`🎁 แลกรางวัล "${reward.name}" สำเร็จ!`);
+        
+        // รีเฟรชข้อมูลเพื่ออัปเดตคะแนน
+        await refetchAll();
+      }
+      
+    } catch (error) {
+      console.error('Error redeeming reward:', error);
+      alert(`ไม่สามารถแลกรางวัลได้: ${error.message}`);
+    }
+  };
+
+  // คำนวณคะแนนที่จะได้/เสีย
+  const calculatePendingPoints = () => {
+    let total = 0;
+    
+    goodBehaviors.forEach(behavior => {
+      const count = behaviorCounts[behavior.id] || 0;
+      total += api.utils.calculateEarnedPoints(behavior.points, count);
+    });
+    
+    badBehaviors.forEach(behavior => {
+      const count = behaviorCounts[behavior.id] || 0;
+      total += api.utils.calculateEarnedPoints(behavior.points, count);
+    });
+    
+    return total;
+  };
+
+  // นับจำนวนกิจกรรมทั้งหมด
+  const getTotalActivitiesCount = () => {
+    return Object.values(behaviorCounts).reduce((sum, count) => sum + count, 0);
+  };
+
+  const pendingPoints = calculatePendingPoints();
+  const totalActivities = getTotalActivitiesCount();
 
   // แสดง Loading
   if (loading) {
@@ -112,7 +306,7 @@ const ChildDashboard = ({ childId: propChildId }) => {
   }
 
   // แสดง Error
-  if (error) {
+  if (error && !children.length) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-pink-200 via-purple-200 to-indigo-200 flex items-center justify-center">
         <div className="text-center p-8 bg-white rounded-xl shadow-lg">
@@ -178,7 +372,7 @@ const ChildDashboard = ({ childId: propChildId }) => {
           <div>
             <div className="font-medium text-gray-800">{behavior.name}</div>
             <div className={`text-sm font-semibold ${isGood ? 'text-green-600' : 'text-red-600'}`}>
-              {isGood ? '+' : ''}{behavior.points} คะแนน
+              {behavior.points > 0 ? '+' : ''}{behavior.points} คะแนน
             </div>
           </div>
         </div>
@@ -187,20 +381,19 @@ const ChildDashboard = ({ childId: propChildId }) => {
           <button
             onClick={() => updateBehaviorCount(behavior.id, -1)}
             disabled={count === 0}
-            className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors ${
-              count === 0 
-                ? 'bg-gray-200 text-gray-400 cursor-not-allowed' 
-                : 'bg-gray-300 text-gray-700 hover:bg-gray-400'
-            }`}
+            className="p-2 rounded-full bg-gray-200 hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             <Minus className="w-4 h-4" />
           </button>
           
-          <span className="w-8 text-center font-semibold">{count}</span>
+          <div className="min-w-[3rem] text-center">
+            <span className="text-lg font-bold text-gray-800">{count}</span>
+            <div className="text-xs text-gray-500">ครั้ง</div>
+          </div>
           
           <button
             onClick={() => updateBehaviorCount(behavior.id, 1)}
-            className="w-8 h-8 rounded-full bg-blue-500 text-white flex items-center justify-center hover:bg-blue-600 transition-colors"
+            className="p-2 rounded-full bg-blue-200 hover:bg-blue-300 transition-colors"
           >
             <Plus className="w-4 h-4" />
           </button>
@@ -211,20 +404,36 @@ const ChildDashboard = ({ childId: propChildId }) => {
 
   // Component สำหรับแสดงรางวัล
   const RewardItem = ({ reward }) => {
-    const canRedeem = currentPoints >= reward.cost;
+    const canRedeem = (selectedChild?.totalPoints || 0) >= reward.cost;
     
     return (
       <div className={`p-4 rounded-xl border transition-all duration-300 ${
-        canRedeem ? 'bg-yellow-50 border-yellow-200 hover:shadow-lg' : 'bg-gray-50 border-gray-200'
+        canRedeem 
+          ? 'bg-purple-50 border-purple-200 hover:shadow-lg cursor-pointer' 
+          : 'bg-gray-50 border-gray-200 opacity-60'
       }`}>
-        <div className="flex justify-between items-center">
-          <div>
-            <div className="font-medium text-gray-800">{reward.name}</div>
-            <div className="text-sm text-gray-600">{reward.cost} คะแนน</div>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="text-lg">🎁</div>
+            <div>
+              <div className="font-medium text-gray-800">{reward.name}</div>
+              <div className="text-sm font-semibold text-purple-600">
+                {reward.cost} คะแนน
+              </div>
+            </div>
           </div>
-          <div className={`text-sm font-semibold ${canRedeem ? 'text-green-600' : 'text-gray-400'}`}>
-            {canRedeem ? 'แลกได้' : 'คะแนนไม่พอ'}
-          </div>
+          
+          <button
+            onClick={() => canRedeem && redeemReward(reward)}
+            disabled={!canRedeem}
+            className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+              canRedeem
+                ? 'bg-purple-600 text-white hover:bg-purple-700'
+                : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+            }`}
+          >
+            {canRedeem ? 'แลก!' : 'คะแนนไม่พอ'}
+          </button>
         </div>
       </div>
     );
@@ -232,193 +441,253 @@ const ChildDashboard = ({ childId: propChildId }) => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-pink-200 via-purple-200 to-indigo-200 p-4">
-      <div className="max-w-4xl mx-auto">
+      <div className="max-w-4xl mx-auto space-y-6">
+        
         {/* Header */}
-        <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-gray-800 mb-4 flex items-center justify-center gap-2">
-            <span className="text-5xl">🌈</span>
-            MyKids
+        <div className="text-center">
+          <h1 className="text-3xl font-bold text-purple-700 mb-2">
+            🌈 MyKids - หน้าเด็ก
           </h1>
-          <p className="text-lg text-gray-600">วันนี้เป็นวันที่ {todayDate}</p>
-        </div>
-
-        {/* เลือกเด็ก */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-          {children.map((child) => (
-            <ChildCard
-              key={child.id}
-              child={child}
-              isSelected={selectedChild?.id === child.id}
-              onClick={setSelectedChild}
-            />
-          ))}
-        </div>
-
-        {/* แสดงคะแนนของเด็กที่เลือก */}
-        {selectedChild && (
-          <div className="text-center mb-8 p-6 bg-white rounded-xl shadow-lg">
-            <div className="text-4xl mb-2">{selectedChild.avatar}</div>
-            <h2 className="text-2xl font-bold text-gray-800">{selectedChild.name}</h2>
-            <div className="text-3xl font-bold text-purple-600 mb-2">
-              {currentPoints} คะแนน
-            </div>
-            <div className="text-sm text-gray-600">
-              งานดี: {Object.values(behaviorCounts).reduce((sum, count) => sum + count, 0)} ครั้ง
-            </div>
+          <p className="text-gray-600">บันทึกพฤติกรรมและดูคะแนนของคุณ</p>
+          <div className="text-sm text-gray-500 mt-1">
+            📅 วันนี้: {todayDate}
           </div>
+        </div>
+
+        {/* Child Selection */}
+        <div className="bg-white p-6 rounded-xl shadow-lg">
+          <h2 className="text-xl font-semibold text-gray-800 mb-4 text-center flex items-center justify-center gap-2">
+            <Users className="w-5 h-5" />
+            เลือกเด็ก
+          </h2>
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            {children.map((child) => (
+              <ChildCard 
+                key={child.id} 
+                child={child} 
+                isSelected={selectedChild?.id === child.id}
+                onClick={setSelectedChild}
+              />
+            ))}
+          </div>
+        </div>
+
+        {selectedChild && (
+          <>
+            {/* Selected Child Info */}
+            <div className="bg-white p-6 rounded-xl shadow-lg text-center">
+              <div className="text-4xl mb-2">{selectedChild.avatar}</div>
+              <h2 className="text-2xl font-bold text-gray-800 mb-1">{selectedChild.name}</h2>
+              <div className="text-purple-600 text-xl font-bold mb-1">
+                {currentPoints} คะแนน
+              </div>
+              <div className="text-sm text-gray-500">
+                รวมทั้งหมด (วันนี้: {selectedChild.todayPoints || 0} คะแนน)
+              </div>
+              {pendingPoints !== 0 && (
+                <div className="mt-3 p-3 bg-gray-50 rounded-lg">
+                  <div className="text-sm text-gray-600 mb-1">คะแนนรอบันทึก:</div>
+                  <div className={`text-lg font-bold ${pendingPoints > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    {pendingPoints > 0 ? '+' : ''}{pendingPoints} คะแนน
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Tab Navigation */}
+            <div className="bg-white rounded-xl shadow-lg overflow-hidden">
+              <div className="flex border-b">
+                <button
+                  onClick={() => setActiveTab('good')}
+                  className={`flex-1 py-4 px-6 font-medium transition-colors ${
+                    activeTab === 'good'
+                      ? 'bg-green-500 text-white'
+                      : 'bg-gray-50 text-gray-700 hover:bg-gray-100'
+                  }`}
+                >
+                  <div className="flex items-center justify-center gap-2">
+                    <CheckCircle className="w-5 h-5" />
+                    <span>งานดี</span>
+                    {goodBehaviors.length > 0 && (
+                      <span className="bg-white bg-opacity-20 text-xs px-2 py-1 rounded-full">
+                        {goodBehaviors.length}
+                      </span>
+                    )}
+                  </div>
+                </button>
+                
+                <button
+                  onClick={() => setActiveTab('bad')}
+                  className={`flex-1 py-4 px-6 font-medium transition-colors ${
+                    activeTab === 'bad'
+                      ? 'bg-red-500 text-white'
+                      : 'bg-gray-50 text-gray-700 hover:bg-gray-100'
+                  }`}
+                >
+                  <div className="flex items-center justify-center gap-2">
+                    <XCircle className="w-5 h-5" />
+                    <span>พฤติกรรมไม่ดี</span>
+                    {badBehaviors.length > 0 && (
+                      <span className="bg-white bg-opacity-20 text-xs px-2 py-1 rounded-full">
+                        {badBehaviors.length}
+                      </span>
+                    )}
+                  </div>
+                </button>
+                
+                <button
+                  onClick={() => setActiveTab('rewards')}
+                  className={`flex-1 py-4 px-6 font-medium transition-colors ${
+                    activeTab === 'rewards'
+                      ? 'bg-purple-500 text-white'
+                      : 'bg-gray-50 text-gray-700 hover:bg-gray-100'
+                  }`}
+                >
+                  <div className="flex items-center justify-center gap-2">
+                    <Gift className="w-5 h-5" />
+                    <span>รางวัล</span>
+                    {rewards.length > 0 && (
+                      <span className="bg-white bg-opacity-20 text-xs px-2 py-1 rounded-full">
+                        {rewards.length}
+                      </span>
+                    )}
+                  </div>
+                </button>
+              </div>
+
+              {/* Tab Content */}
+              <div className="p-6">
+                {activeTab === 'good' && (
+                  <div>
+                    <h3 className="text-lg font-semibold text-green-700 mb-4">
+                      ✅ งานดีที่ทำได้
+                    </h3>
+                    {goodBehaviors.length > 0 ? (
+                      <div className="space-y-3">
+                        {goodBehaviors.map((behavior) => (
+                          <BehaviorItem 
+                            key={behavior.id} 
+                            behavior={behavior} 
+                            count={behaviorCounts[behavior.id] || 0}
+                          />
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-center py-8">
+                        <CheckCircle className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                        <p className="text-gray-500">ยังไม่มีงานดีในระบบ</p>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {activeTab === 'bad' && (
+                  <div>
+                    <h3 className="text-lg font-semibold text-red-700 mb-4">
+                      ❌ พฤติกรรมที่ไม่ควรทำ
+                    </h3>
+                    {badBehaviors.length > 0 ? (
+                      <div className="space-y-3">
+                        {badBehaviors.map((behavior) => (
+                          <BehaviorItem 
+                            key={behavior.id} 
+                            behavior={behavior} 
+                            count={behaviorCounts[behavior.id] || 0}
+                          />
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-center py-8">
+                        <XCircle className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                        <p className="text-gray-500">ยังไม่มีพฤติกรรมไม่ดีในระบบ</p>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {activeTab === 'rewards' && (
+                  <div>
+                    <h3 className="text-lg font-semibold text-purple-700 mb-4">
+                      🎁 รางวัลที่แลกได้
+                    </h3>
+                    {rewards.length > 0 ? (
+                      <div className="space-y-3">
+                        {rewards.map((reward) => (
+                          <RewardItem key={reward.id} reward={reward} />
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-center py-8">
+                        <Gift className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                        <p className="text-gray-500">ยังไม่มีรางวัลในระบบ</p>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            {totalActivities > 0 && (
+              <div className="bg-white p-6 rounded-xl shadow-lg">
+                <div className="text-center mb-4">
+                  <h3 className="text-lg font-semibold text-gray-800 mb-2">
+                    🎯 พร้อมบันทึก {totalActivities} กิจกรรม
+                  </h3>
+                  {pendingPoints !== 0 && (
+                    <div className={`text-xl font-bold ${pendingPoints > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                      {pendingPoints > 0 ? '🎉 +' : '😔 '}{pendingPoints} คะแนน
+                    </div>
+                  )}
+                </div>
+                
+                <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                  <button
+                    onClick={saveActivities}
+                    disabled={saving || totalActivities === 0}
+                    className={`px-8 py-4 rounded-xl font-semibold text-white transition-all duration-300 flex items-center gap-2 justify-center ${
+                      saving || totalActivities === 0
+                        ? 'bg-gray-400 cursor-not-allowed'
+                        : 'bg-orange-500 hover:bg-orange-600 hover:shadow-lg transform hover:scale-105'
+                    }`}
+                  >
+                    {saving ? (
+                      <>
+                        <Loader2 className="w-5 h-5 animate-spin" />
+                        กำลังบันทึก...
+                      </>
+                    ) : (
+                      <>
+                        <Save className="w-5 h-5" />
+                        💾 บันทึกใหม่ ({totalActivities})
+                      </>
+                    )}
+                  </button>
+                  
+                  <button 
+                    onClick={refetchAll}
+                    disabled={loading || saving}
+                    className="px-6 py-4 bg-blue-500 text-white rounded-xl font-semibold flex items-center gap-2 justify-center hover:bg-blue-600 transition-colors disabled:opacity-50"
+                  >
+                    <RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
+                    รีเฟรชข้อมูล
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Error Display */}
+            {error && (
+              <div className="bg-red-50 border border-red-200 rounded-xl p-4">
+                <div className="flex items-center gap-2">
+                  <AlertCircle className="w-5 h-5 text-red-500" />
+                  <span className="text-red-700">{error}</span>
+                </div>
+              </div>
+            )}
+          </>
         )}
 
-        {/* Tabs */}
-        <div className="flex justify-center mb-6">
-          <div className="flex bg-white rounded-lg shadow-lg overflow-hidden">
-            <button
-              onClick={() => setActiveTab('good')}
-              className={`flex items-center gap-2 px-6 py-3 font-medium transition-colors ${
-                activeTab === 'good'
-                  ? 'bg-green-500 text-white'
-                  : 'text-gray-700 hover:bg-green-50'
-              }`}
-            >
-              <CheckCircle className="w-5 h-5" />
-              งานดี ({goodBehaviors.length})
-            </button>
-            
-            <button
-              onClick={() => setActiveTab('bad')}
-              className={`flex items-center gap-2 px-6 py-3 font-medium transition-colors ${
-                activeTab === 'bad'
-                  ? 'bg-red-500 text-white'
-                  : 'text-gray-700 hover:bg-red-50'
-              }`}
-            >
-              <XCircle className="w-5 h-5" />
-              พฤติกรรมไม่ดี ({badBehaviors.length})
-            </button>
-            
-            <button
-              onClick={() => setActiveTab('rewards')}
-              className={`flex items-center gap-2 px-6 py-3 font-medium transition-colors ${
-                activeTab === 'rewards'
-                  ? 'bg-yellow-500 text-white'
-                  : 'text-gray-700 hover:bg-yellow-50'
-              }`}
-            >
-              <Gift className="w-5 h-5" />
-              รางวัล ({rewards.length})
-            </button>
-          </div>
-        </div>
-
-        {/* เนื้อหาตาม Tab */}
-        <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
-          {activeTab === 'good' && (
-            <div>
-              <h3 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
-                <CheckCircle className="text-green-500" />
-                งานดีที่ทำได้วันนี้
-              </h3>
-              <div className="space-y-4">
-                {goodBehaviors.length > 0 ? (
-                  goodBehaviors.map((behavior) => (
-                    <BehaviorItem
-                      key={behavior.id}
-                      behavior={behavior}
-                      count={behaviorCounts[behavior.id] || 0}
-                    />
-                  ))
-                ) : (
-                  <p className="text-gray-500 text-center py-8">ยังไม่มีงานดีในระบบ</p>
-                )}
-              </div>
-            </div>
-          )}
-
-          {activeTab === 'bad' && (
-            <div>
-              <h3 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
-                <XCircle className="text-red-500" />
-                พฤติกรรมที่ควรหลีกเลี่ยง
-              </h3>
-              <div className="space-y-4">
-                {badBehaviors.length > 0 ? (
-                  badBehaviors.map((behavior) => (
-                    <BehaviorItem
-                      key={behavior.id}
-                      behavior={behavior}
-                      count={behaviorCounts[behavior.id] || 0}
-                    />
-                  ))
-                ) : (
-                  <p className="text-gray-500 text-center py-8">ยังไม่มีพฤติกรรมไม่ดีในระบบ</p>
-                )}
-              </div>
-            </div>
-          )}
-
-          {activeTab === 'rewards' && (
-            <div>
-              <h3 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
-                <Gift className="text-yellow-500" />
-                รางวัลที่แลกได้
-              </h3>
-              <div className="space-y-4">
-                {rewards.length > 0 ? (
-                  rewards.map((reward) => (
-                    <RewardItem
-                      key={reward.id}
-                      reward={reward}
-                    />
-                  ))
-                ) : (
-                  <p className="text-gray-500 text-center py-8">ยังไม่มีรางวัลในระบบ</p>
-                )}
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* ปุ่มบันทึก */}
-        <div className="text-center">
-          <button
-            onClick={saveActivities}
-            disabled={saving || Object.values(behaviorCounts).every(count => count === 0)}
-            className={`px-8 py-4 rounded-xl font-semibold text-white transition-all duration-300 flex items-center gap-2 mx-auto ${
-              saving || Object.values(behaviorCounts).every(count => count === 0)
-                ? 'bg-gray-400 cursor-not-allowed'
-                : 'bg-orange-500 hover:bg-orange-600 hover:shadow-lg transform hover:scale-105'
-            }`}
-          >
-            {saving ? (
-              <>
-                <Loader2 className="w-5 h-5 animate-spin" />
-                กำลังบันทึก...
-              </>
-            ) : (
-              <>
-                <Save className="w-5 h-5" />
-                บันทึกใหม่
-              </>
-            )}
-          </button>
-          
-          {saveError && (
-            <p className="text-red-600 mt-2">บันทึกล้มเหลว: {saveError}</p>
-          )}
-        </div>
-
-        {/* ข้อมูลการเชื่อมต่อ */}
-        <div className="mt-8 text-center">
-          <div className="text-sm text-gray-500 bg-white bg-opacity-70 rounded-lg p-4">
-            ความคืบหน้าการเก็บข้อมูลของ {selectedChild?.name}
-            <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
-              <div 
-                className="bg-gradient-to-r from-purple-500 to-pink-500 h-2 rounded-full" 
-                style={{ width: '0%' }}
-              ></div>
-            </div>
-            <div className="text-xs mt-1">0% เสร็จแล้ว</div>
-          </div>
-        </div>
       </div>
     </div>
   );

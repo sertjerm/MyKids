@@ -71,21 +71,26 @@ export const rewardsAPI = {
   getAll: () => apiCall("rewards"),
 };
 
-// Activities API - สำหรับบันทึกกิจกรรม
+// Activities API - สำหรับบันทึกกิจกรรม (ปรับปรุงใหม่)
 export const activitiesAPI = {
   // ดึงกิจกรรมทั้งหมด
   getAll: () => apiCall("activities"),
 
-  // บันทึกกิจกรรมใหม่
+  // บันทึกกิจกรรมใหม่ - รองรับ API ใหม่
   create: (data) =>
     apiCall("activities", "POST", {
       ChildId: data.childId,
       ItemId: data.itemId,
-      ActivityType: data.activityType || "Behavior",
+      ActivityType: data.activityType, // ใช้ 'Good', 'Bad', 'Reward' ตรงกับ database enum
       Count: data.count || 1,
       Note: data.note || "",
       ActivityDate: data.activityDate || new Date().toISOString().split("T")[0],
     }),
+
+  // เพิ่มฟังก์ชันบันทึกกิจกรรมเดียว (alias)
+  record: function(data) {
+    return this.create(data);
+  }
 };
 
 // Dashboard API
@@ -94,7 +99,7 @@ export const dashboardAPI = {
   getSummary: () => apiCall("dashboard"),
 };
 
-// API Utils สำหรับงานทั่วไป
+// API Utils สำหรับงานทั่วไป (ปรับปรุงใหม่)
 export const apiUtils = {
   // ตรวจสอบสถานะ API
   checkStatus: async () => {
@@ -146,10 +151,63 @@ export const apiUtils = {
     itemName: activity.ItemName,
     activityType: activity.ActivityType,
     count: activity.Count,
+    earnedPoints: activity.EarnedPoints || 0,
     note: activity.Note,
     activityDate: activity.ActivityDate,
     createdAt: activity.CreatedAt,
   }),
+
+  // ฟังก์ชันจัดรูปแบบข้อมูลกิจกรรม - ใช้งานใน frontend
+  formatActivityData: (childId, itemId, activityType, count = 1, note = "") => {
+    return {
+      childId,
+      itemId,
+      activityType, // 'Good', 'Bad', 'Reward'
+      count,
+      note,
+      activityDate: new Date().toISOString().split("T")[0],
+    };
+  },
+
+  // บันทึกกิจกรรมหลายรายการ - ใช้งานใน frontend
+  recordMultipleActivities: async (activities) => {
+    const results = [];
+    
+    for (const activity of activities) {
+      try {
+        const result = await activitiesAPI.create(activity);
+        results.push({
+          success: true,
+          data: result,
+          activity: activity
+        });
+      } catch (error) {
+        console.error("Failed to record activity:", activity, error);
+        results.push({
+          success: false,
+          error: error.message,
+          activity: activity
+        });
+      }
+    }
+    
+    return results;
+  },
+
+  // ช่วยฟังก์ชันสำหรับกำหนดประเภทกิจกรรมจากพฤติกรรม
+  getActivityTypeFromBehavior: (behavior) => {
+    if (behavior.Type === 'Good') return 'Good';
+    if (behavior.Type === 'Bad') return 'Bad';
+    return 'Good'; // default fallback
+  },
+
+  // ช่วยฟังก์ชันสำหรับกำหนดประเภทกิจกรรมสำหรับรางวัล
+  getActivityTypeForReward: () => 'Reward',
+
+  // คำนวณคะแนนจากจำนวนครั้ง
+  calculateEarnedPoints: (points, count) => {
+    return (points || 0) * (count || 1);
+  }
 };
 
 // Export ค่า config สำหรับใช้ในที่อื่น
@@ -165,6 +223,11 @@ export const API_CONFIG = {
     ACTIVITIES: "activities",
     DASHBOARD: "dashboard",
   },
+  ACTIVITY_TYPES: {
+    GOOD: 'Good',
+    BAD: 'Bad', 
+    REWARD: 'Reward'
+  }
 };
 
 // Export default object รวม
