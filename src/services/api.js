@@ -1,320 +1,318 @@
 // src/services/api.js
-// แก้ไขการบันทึกข้อมูลให้ถูกต้อง - รองรับ EarnedPoints และ ActivityType ตาม Database Schema
+// Main API Interface for MyKids Behavior Tracker
 
-import axios from "axios";
+import mockData, { 
+  mockFamilies, 
+  mockChildren, 
+  mockBehaviors, 
+  mockRewards, 
+  mockDailyActivities,
+  calculateCurrentPoints,
+  getBehaviorsByFamily,
+  getRewardsByFamily,
+  getChildrenByFamily,
+  canPerformBehavior,
+  canRedeemReward
+} from '../data/mockData.js';
 
-// API Configuration - ใช้ Vite environment variable
-const API_BASE_URL =
-  import.meta.env.VITE_API_URL || "https://sertjerm.com/my-kids-api/api.php";
+// API Configuration
+const API_CONFIG = {
+  USE_MOCK_DATA: true, // Set to false when connecting to real API
+  BASE_URL: 'https://api.mykids-tracker.com/v1', // Real API URL
+  TIMEOUT: 10000,
+  RETRY_ATTEMPTS: 3
+};
 
-console.log("🔗 API_BASE_URL:", API_BASE_URL);
+// Simulate network delay for realistic experience
+const delay = (ms = 300) => new Promise(resolve => setTimeout(resolve, ms));
 
-// Helper function to make API calls with better error handling
-const apiCall = async (endpoint, method = "GET", data = null) => {
-  const url = endpoint ? `${API_BASE_URL}?${endpoint}` : API_BASE_URL;
+// Error handling utility
+const handleApiError = (error, operation) => {
+  console.error(`API Error in ${operation}:`, error);
+  throw new Error(`${operation} failed: ${error.message}`);
+};
 
+// ============================================
+// AUTHENTICATION APIs
+// ============================================
+
+/**
+ * Get all available families (for demo login)
+ * @returns {Promise<Array>} Array of families
+ */
+export const getFamilies = async () => {
   try {
-    console.log(`📤 ${method} ${url}`, data ? { data } : '');
-
-    const response = await axios({
-      url,
-      method,
-      data: method !== "GET" ? data : undefined,
-      headers: { "Content-Type": "application/json" },
-      timeout: 10000, // 10 วินาที
-    });
-
-    console.log(`📥 Response:`, response.data);
-
-    // ตรวจสอบ response format
-    if (response.data && response.data.error) {
-      throw new Error(response.data.message || response.data.error);
+    await delay(200);
+    
+    if (API_CONFIG.USE_MOCK_DATA) {
+      return mockFamilies
+        .filter(f => f.IsActive === 1)
+        .map(family => ({
+          ...family,
+          childrenCount: getChildrenByFamily(family.Id).length
+        }));
     }
-    return response.data;
+    
+    const response = await fetch(`${API_CONFIG.BASE_URL}/families`);
+    if (!response.ok) throw new Error('Failed to fetch families');
+    return await response.json();
+    
   } catch (error) {
-    console.error("❌ API Error:", error);
-    
-    // Handle different error types
-    if (error.response) {
-      // Server responded with error status
-      const errorMsg = error.response.data?.message || error.response.data?.error || `HTTP ${error.response.status}`;
-      throw new Error(errorMsg);
-    } else if (error.request) {
-      // Request was made but no response
-      throw new Error("ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์ได้");
-    } else {
-      // Something else happened
-      throw new Error(error.message || "เกิดข้อผิดพลาดไม่ทราบสาเหตุ");
-    }
+    handleApiError(error, 'getFamilies');
   }
 };
 
-// Health Check API
-export const healthAPI = {
-  check: () => apiCall("health"),
-};
-
-// Children API - ตรงกับ backend endpoints
-export const childrenAPI = {
-  // ดึงเด็กทั้งหมด
-  getAll: () => apiCall("children"),
-
-  // สร้างเด็กใหม่
-  create: (data) =>
-    apiCall("children", "POST", {
-      Name: data.name,
-      Age: data.age,
-      AvatarPath: data.avatarPath || "👶",
-    }),
-
-  // ดึงข้อมูล dashboard (รวมคะแนน)
-  getDashboard: () => apiCall("dashboard"),
-};
-
-// Behaviors API - ตรงกับ backend endpoints
-export const behaviorsAPI = {
-  // ดึงพฤติกรรมทั้งหมด
-  getAll: () => apiCall("behaviors"),
-
-  // ดึงพฤติกรรมดีเท่านั้น (good-behaviors หรือ tasks)
-  getGood: () => apiCall("good-behaviors"),
-
-  // ดึงพฤติกรรมไม่ดีเท่านั้น (bad-behaviors)
-  getBad: () => apiCall("bad-behaviors"),
-};
-
-// Rewards API
-export const rewardsAPI = {
-  // ดึงรางวัลทั้งหมด
-  getAll: () => apiCall("rewards"),
-};
-
-// Activities API - *** แก้ไขใหม่ให้ตรงกับ Database Schema ***
-export const activitiesAPI = {
-  // ดึงกิจกรรมทั้งหมด
-  getAll: () => apiCall("activities"),
-
-  // บันทึกกิจกรรมใหม่ - ปรับให้ตรงกับ Database Schema
-  create: (data) => {
-    // ตรวจสอบข้อมูลที่จำเป็น
-    if (!data.childId || !data.itemId) {
-      throw new Error("ต้องระบุ childId และ itemId");
-    }
-
-    // คำนวณ EarnedPoints จาก Points และ Count
-    const earnedPoints = data.earnedPoints || ((data.points || 0) * (data.count || 1));
-
-    const payload = {
-      ChildId: data.childId,
-      ItemId: data.itemId,
-      ActivityType: data.activityType, // 'Good', 'Bad', 'Reward'
-      Count: data.count || 1,
-      EarnedPoints: earnedPoints, // *** เพิ่มฟิลด์สำคัญนี้ ***
-      Note: data.note || "",
-      ActivityDate: data.activityDate || new Date().toISOString().split("T")[0],
-    };
-
-    console.log("🎯 Creating activity with payload:", payload);
+/**
+ * Login with family credentials
+ * @param {string} email - Family email
+ * @param {string} password - Family password
+ * @returns {Promise<Object>} Family object with children
+ */
+export const loginFamily = async (email, password) => {
+  try {
+    await delay(500);
     
-    return apiCall("activities", "POST", payload);
-  },
-
-  // เพิ่มฟังก์ชันบันทึกกิจกรรมเดียว (alias)
-  record: function(data) {
-    return this.create(data);
-  }
-};
-
-// Dashboard API
-export const dashboardAPI = {
-  // ดึงข้อมูล dashboard
-  getSummary: () => apiCall("dashboard"),
-};
-
-// API Utils สำหรับงานทั่วไป (ปรับปรุงใหม่)
-export const apiUtils = {
-  // ตรวจสอบสถานะ API
-  checkStatus: async () => {
-    try {
-      const result = await healthAPI.check();
-      return {
-        status: "connected",
-        data: result,
-      };
-    } catch (error) {
-      return {
-        status: "error",
-        data: { error: error.message },
-      };
-    }
-  },
-
-  // แปลงข้อมูลจาก API เป็น format ที่ frontend ต้องการ
-  transformChild: (child) => ({
-    id: child.Id,
-    name: child.Name,
-    age: child.Age,
-    avatar: child.AvatarPath || "👶",
-    todayPoints: child.TodayPoints || 0,
-    totalPoints: child.TotalPoints || 0,
-    earnedPoints: child.EarnedPoints || 0,
-    deductedPoints: child.DeductedPoints || 0,
-    isActive: child.IsActive,
-  }),
-
-  transformBehavior: (behavior) => ({
-    id: behavior.Id,
-    name: behavior.Name,
-    points: behavior.Points,
-    type: behavior.Type,
-    color: behavior.Color,
-    category: behavior.Category,
-    isRepeatable: behavior.IsRepeatable,
-    isActive: behavior.IsActive,
-  }),
-
-  transformReward: (reward) => ({
-    id: reward.Id,
-    name: reward.Name,
-    cost: reward.Cost,
-    color: reward.Color,
-    category: reward.Category,
-    isActive: reward.IsActive,
-  }),
-
-  transformActivity: (activity) => ({
-    id: activity.Id || `${activity.ChildId}-${activity.ItemId}-${Date.now()}`,
-    childId: activity.ChildId,
-    childName: activity.ChildName,
-    itemId: activity.ItemId,
-    itemName: activity.ItemName,
-    activityType: activity.ActivityType,
-    count: activity.Count,
-    earnedPoints: activity.EarnedPoints || 0,
-    note: activity.Note,
-    activityDate: activity.ActivityDate,
-    createdAt: activity.CreatedAt,
-  }),
-
-  // ฟังก์ชันจัดรูปแบบข้อมูลกิจกรรม - ใช้งานใน frontend
-  formatActivityData: (childId, itemId, activityType, points = 0, count = 1, note = "") => {
-    return {
-      childId,
-      itemId,
-      activityType, // 'Good', 'Bad', 'Reward'
-      points,
-      count,
-      note,
-      earnedPoints: points * count, // *** คำนวณ EarnedPoints ***
-      activityDate: new Date().toISOString().split("T")[0],
-    };
-  },
-
-  // ฟังก์ชันพิเศษสำหรับสร้างข้อมูลกิจกรรมจากพฤติกรรม
-  createActivityFromBehavior: (childId, behavior, count = 1, note = "") => {
-    return apiUtils.formatActivityData(
-      childId,
-      behavior.id,
-      behavior.type, // 'Good' หรือ 'Bad'
-      behavior.points,
-      count,
-      note
-    );
-  },
-
-  // ฟังก์ชันพิเศษสำหรับสร้างข้อมูลกิจกรรมจากรางวัล
-  createActivityFromReward: (childId, reward, count = 1, note = "") => {
-    return apiUtils.formatActivityData(
-      childId,
-      reward.id,
-      'Reward',
-      -Math.abs(reward.cost), // รางวัลเป็นลบเสมอ
-      count,
-      note
-    );
-  },
-
-  // บันทึกกิจกรรมหลายรายการ - ใช้งานใน frontend
-  recordMultipleActivities: async (activities) => {
-    const results = [];
-    
-    for (const activity of activities) {
-      try {
-        const result = await activitiesAPI.create(activity);
-        results.push({
-          success: true,
-          data: result,
-          activity: activity
-        });
-      } catch (error) {
-        console.error("Failed to record activity:", activity, error);
-        results.push({
-          success: false,
-          error: error.message,
-          activity: activity
-        });
+    if (API_CONFIG.USE_MOCK_DATA) {
+      const family = mockFamilies.find(f => 
+        f.Email === email && 
+        f.Password === password && 
+        f.IsActive === 1
+      );
+      
+      if (!family) {
+        throw new Error('Invalid email or password');
       }
+      
+      // Get family children
+      const children = getChildrenByFamily(family.Id).map(child => ({
+        ...child,
+        currentPoints: calculateCurrentPoints(child.Id)
+      }));
+      
+      return {
+        ...family,
+        children
+      };
     }
     
-    return results;
-  },
-
-  // ช่วยฟังก์ชันสำหรับกำหนดประเภทกิจกรรมจากพฤติกรรม
-  getActivityTypeFromBehavior: (behavior) => {
-    if (behavior.Type === 'Good') return 'Good';
-    if (behavior.Type === 'Bad') return 'Bad';
-    return 'Good'; // default fallback
-  },
-
-  // ช่วยฟังก์ชันสำหรับกำหนดประเภทกิจกรรมสำหรับรางวัล
-  getActivityTypeForReward: () => 'Reward',
-
-  // คำนวณคะแนนจากจำนวนครั้ง
-  calculateEarnedPoints: (points, count) => {
-    return (points || 0) * (count || 1);
-  },
-
-  // *** ฟังก์ชันใหม่สำหรับการ Debug ***
-  debugActivity: (activityData) => {
-    console.log("🔍 Debug Activity Data:", {
-      original: activityData,
-      hasChildId: !!activityData.childId,
-      hasItemId: !!activityData.itemId,
-      hasActivityType: !!activityData.activityType,
-      calculatedEarnedPoints: apiUtils.calculateEarnedPoints(activityData.points, activityData.count)
+    // Real API call would go here
+    const response = await fetch(`${API_CONFIG.BASE_URL}/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password })
     });
+    
+    if (!response.ok) throw new Error('Login failed');
+    return await response.json();
+    
+  } catch (error) {
+    handleApiError(error, 'loginFamily');
   }
 };
 
-// Export ค่า config สำหรับใช้ในที่อื่น
-export const API_CONFIG = {
-  BASE_URL: API_BASE_URL,
-  ENDPOINTS: {
-    HEALTH: "health",
-    CHILDREN: "children",
-    BEHAVIORS: "behaviors",
-    GOOD_BEHAVIORS: "good-behaviors",
-    BAD_BEHAVIORS: "bad-behaviors",
-    REWARDS: "rewards",
-    ACTIVITIES: "activities",
-    DASHBOARD: "dashboard",
-  },
-  ACTIVITY_TYPES: {
-    GOOD: 'Good',
-    BAD: 'Bad', 
-    REWARD: 'Reward'
+// ============================================
+// ACTIVITIES APIs
+// ============================================
+
+/**
+ * Record a behavior activity
+ * @param {Object} activityData - Activity data
+ * @returns {Promise<Object>} Created activity
+ */
+export const recordBehavior = async (activityData) => {
+  try {
+    await delay(400);
+    
+    const today = new Date().toISOString().split('T')[0];
+    
+    if (API_CONFIG.USE_MOCK_DATA) {
+      // Validate if behavior can be performed
+      if (!canPerformBehavior(activityData.childId, activityData.behaviorId, today)) {
+        throw new Error('This behavior has already been completed for today');
+      }
+      
+      const behavior = mockBehaviors.find(b => b.Id === activityData.behaviorId);
+      if (!behavior) throw new Error('Behavior not found');
+      
+      // Get current activities from localStorage
+      const activities = JSON.parse(localStorage.getItem('mykids_activities') || '[]');
+      const existingIds = activities.map(a => a.Id).filter(id => typeof id === 'number');
+      const nextId = existingIds.length > 0 ? Math.max(...existingIds) + 1 : 1;
+      
+      const newActivity = {
+        Id: nextId,
+        ItemId: activityData.behaviorId,
+        ChildId: activityData.childId,
+        ActivityDate: today,
+        ActivityType: behavior.Type,
+        Count: 1,
+        EarnedPoints: behavior.Points,
+        Note: activityData.note || `${behavior.Name} - บันทึกโดยเด็ก`,
+        ApprovedBy: activityData.familyId || null,
+        ApprovedAt: new Date().toISOString(),
+        Status: 'Approved',
+        CreatedAt: new Date().toISOString(),
+        UpdatedAt: null
+      };
+      
+      activities.push(newActivity);
+      localStorage.setItem('mykids_activities', JSON.stringify(activities));
+      
+      return {
+        activity: newActivity,
+        newPoints: calculateCurrentPoints(activityData.childId),
+        behavior
+      };
+    }
+    
+    const response = await fetch(`${API_CONFIG.BASE_URL}/activities/behavior`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(activityData)
+    });
+    
+    if (!response.ok) throw new Error('Failed to record behavior');
+    return await response.json();
+    
+  } catch (error) {
+    handleApiError(error, 'recordBehavior');
   }
 };
 
-// Export default object รวม
+/**
+ * Redeem a reward
+ * @param {Object} redeemData - Redeem data
+ * @returns {Promise<Object>} Created activity
+ */
+export const redeemReward = async (redeemData) => {
+  try {
+    await delay(400);
+    
+    const today = new Date().toISOString().split('T')[0];
+    
+    if (API_CONFIG.USE_MOCK_DATA) {
+      // Validate if reward can be redeemed
+      if (!canRedeemReward(redeemData.childId, redeemData.rewardId)) {
+        throw new Error('Insufficient points to redeem this reward');
+      }
+      
+      const reward = mockRewards.find(r => r.Id === redeemData.rewardId);
+      if (!reward) throw new Error('Reward not found');
+      
+      const activities = JSON.parse(localStorage.getItem('mykids_activities') || '[]');
+      const existingIds = activities.map(a => a.Id).filter(id => typeof id === 'number');
+      const nextId = existingIds.length > 0 ? Math.max(...existingIds) + 1 : 1;
+      
+      const newActivity = {
+        Id: nextId,
+        ItemId: redeemData.rewardId,
+        ChildId: redeemData.childId,
+        ActivityDate: today,
+        ActivityType: 'Reward',
+        Count: 1,
+        EarnedPoints: -reward.Cost,
+        Note: redeemData.note || `แลก ${reward.Name}`,
+        ApprovedBy: redeemData.familyId || null,
+        ApprovedAt: new Date().toISOString(),
+        Status: 'Approved',
+        CreatedAt: new Date().toISOString(),
+        UpdatedAt: null
+      };
+      
+      activities.push(newActivity);
+      localStorage.setItem('mykids_activities', JSON.stringify(activities));
+      
+      return {
+        activity: newActivity,
+        newPoints: calculateCurrentPoints(redeemData.childId),
+        reward
+      };
+    }
+    
+    const response = await fetch(`${API_CONFIG.BASE_URL}/activities/reward`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(redeemData)
+    });
+    
+    if (!response.ok) throw new Error('Failed to redeem reward');
+    return await response.json();
+    
+  } catch (error) {
+    handleApiError(error, 'redeemReward');
+  }
+};
+
+// ============================================
+// UTILITY APIs
+// ============================================
+
+/**
+ * Reset all test data (for demo purposes)
+ * @returns {Promise<Object>} Success message
+ */
+export const resetTestData = async () => {
+  try {
+    await delay(1000);
+    
+    if (API_CONFIG.USE_MOCK_DATA) {
+      localStorage.removeItem('mykids_activities');
+      localStorage.setItem('mykids_activities', JSON.stringify([]));
+      return { message: 'ข้อมูลทดสอบถูกรีเซ็ตแล้ว!', success: true };
+    }
+    
+    const response = await fetch(`${API_CONFIG.BASE_URL}/admin/reset-test-data`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' }
+    });
+    
+    if (!response.ok) throw new Error('Failed to reset test data');
+    return await response.json();
+    
+  } catch (error) {
+    handleApiError(error, 'resetTestData');
+  }
+};
+
+/**
+ * Switch between mock and real API
+ * @param {boolean} useMock - Use mock data
+ */
+export const setApiMode = (useMock = true) => {
+  API_CONFIG.USE_MOCK_DATA = useMock;
+};
+
+/**
+ * Set real API base URL
+ * @param {string} baseUrl - API base URL
+ */
+export const setApiBaseUrl = (baseUrl) => {
+  API_CONFIG.BASE_URL = baseUrl;
+};
+
+// Export configuration for external use
+export const getApiConfig = () => ({ ...API_CONFIG });
+
+// ============================================
+// DEFAULT EXPORT - Main API Object
+// ============================================
+
 const api = {
-  health: healthAPI,
-  children: childrenAPI,
-  behaviors: behaviorsAPI,
-  rewards: rewardsAPI,
-  activities: activitiesAPI,
-  dashboard: dashboardAPI,
-  utils: apiUtils,
+  // Authentication
+  loginFamily,
+  getFamilies,
+  
+  // Activities
+  recordBehavior,
+  redeemReward,
+  
+  // Utilities
+  resetTestData,
+  
+  // Configuration
+  setApiMode,
+  setApiBaseUrl,
+  getApiConfig
 };
 
 export default api;
