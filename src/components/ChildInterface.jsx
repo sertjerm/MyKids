@@ -362,50 +362,7 @@ const ChildInterface = ({ family, child, onBack }) => {
           </div>
         </div>
 
-        {/* Activity Summary */}
-        <ActivitySummary />
-
-        {/* Today's Activities */}
-        {todayActivities.length > 0 && (
-          <div className="bg-white/90 backdrop-blur-sm rounded-3xl shadow-xl p-6 mb-6">
-            <h3 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-3">
-              <Calendar className="w-6 h-6 text-blue-500" />
-              กิจกรรมที่บันทึกแล้ววันนี้
-            </h3>
-            <div className="space-y-3">
-              {todayActivities.slice(0, 5).map((activity, index) => (
-                <div
-                  key={activity.Id}
-                  className="flex items-center gap-4 p-4 bg-gradient-to-r from-white to-gray-50 rounded-xl border border-gray-100"
-                >
-                  <div className="flex-shrink-0">
-                    <div
-                      className={`w-4 h-4 rounded-full ${
-                        activity.ActivityType === "Good"
-                          ? "bg-green-400"
-                          : activity.ActivityType === "Bad"
-                          ? "bg-red-400"
-                          : "bg-purple-400"
-                      }`}
-                    />
-                  </div>
-                  <span className="flex-1 text-gray-700">{activity.Note}</span>
-                  <div
-                    className={`px-3 py-1 rounded-full text-sm font-bold ${
-                      activity.EarnedPoints > 0
-                        ? "bg-green-100 text-green-700"
-                        : "bg-red-100 text-red-700"
-                    }`}
-                  >
-                    {activity.EarnedPoints > 0 ? "+" : ""}
-                    {activity.EarnedPoints}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
+      
         {/* Enhanced Tabs */}
         <div className="flex gap-3 mb-6 justify-center">
           {[
@@ -437,7 +394,7 @@ const ChildInterface = ({ family, child, onBack }) => {
         </div>
 
         {/* Enhanced Tab Content */}
-        <div className="space-y-4">
+        <div className="space-y-4 mb-4">
           {tab === "good" && (
             <div>
               <h3 className="text-2xl font-bold text-green-600 mb-6 flex items-center gap-3">
@@ -446,7 +403,7 @@ const ChildInterface = ({ family, child, onBack }) => {
                 </div>
                 พฤติกรรมดี
               </h3>
-              <div className="grid gap-4">
+              <div className="grid gap-2">
                 {familyBehaviors
                   .filter((b) => b.Type === "Good")
                   .map((behavior) => (
@@ -470,7 +427,7 @@ const ChildInterface = ({ family, child, onBack }) => {
                 </div>
                 พฤติกรรมไม่ดี
               </h3>
-              <div className="grid gap-4">
+              <div className="grid gap-2">
                 {familyBehaviors
                   .filter((b) => b.Type === "Bad")
                   .map((behavior) => (
@@ -492,7 +449,7 @@ const ChildInterface = ({ family, child, onBack }) => {
                 <Gift className="w-8 h-8" />
                 รางวัล
               </h3>
-              <div className="grid gap-4">
+              <div className="grid gap-2">
                 {familyRewards.map((reward) => (
                   <RewardCard
                     key={reward.Id}
@@ -502,12 +459,55 @@ const ChildInterface = ({ family, child, onBack }) => {
                   />
                 ))}
               </div>
-              {Object.values(behaviorCounts).some((count) => count > 0) && (
+              {/* {Object.values(behaviorCounts).some((count) => count > 0) && (
                 <ActivitySummary />
-              )}
+              )} */}
             </div>
           )}
         </div>
+  {/* Activity Summary */}
+        <ActivitySummary />
+
+        {/* Today's Activities */}
+        {todayActivities.length > 0 && (
+          <div className="bg-white/90 backdrop-blur-sm rounded-3xl shadow-xl p-6 mb-6">
+            <h3 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-3">
+              <Calendar className="w-6 h-6 text-blue-500" />
+              กิจกรรมที่บันทึกแล้ววันนี้
+            </h3>
+            <div className="space-y-3">
+              {todayActivities.slice(0, 5).map((activity, index) => (
+                <div
+                  key={activity.Id}
+                  className="flex items-center gap-2 p-4 bg-gradient-to-r from-white to-gray-50 rounded-xl border border-gray-100"
+                >
+                  <div className="flex-shrink-0">
+                    <div
+                      className={`w-4 h-4 rounded-full ${
+                        activity.ActivityType === "Good"
+                          ? "bg-green-400"
+                          : activity.ActivityType === "Bad"
+                          ? "bg-red-400"
+                          : "bg-purple-400"
+                      }`}
+                    />
+                  </div>
+                  <span className="flex-1 text-gray-700">{activity.Note}</span>
+                  <div
+                    className={`px-3 py-1 rounded-full text-sm font-bold ${
+                      activity.EarnedPoints > 0
+                        ? "bg-green-100 text-green-700"
+                        : "bg-red-100 text-red-700"
+                    }`}
+                  >
+                    {activity.EarnedPoints > 0 ? "+" : ""}
+                    {activity.EarnedPoints}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Success Messages */}
         {selectedBehavior && (
