@@ -1,84 +1,177 @@
 // src/pages/ChildDashboard.jsx
-// แก้ไขปัญหา import และ export - ตรวจสอบ dependencies
-
-import React, { useState, useCallback } from 'react';
-import { Star, Gift, AlertCircle, CheckCircle, RefreshCw } from 'lucide-react';
-
-// ตรวจสอบการ import hooks
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
-  useChildDashboardData, 
-  useActivityRecorder 
-} from '../hooks/useApi';
+  Star, Gift, AlertCircle, CheckCircle, RefreshCw, 
+  XCircle, Users, Award, Activity, Repeat, Plus, Minus 
+} from 'lucide-react';
 
-// ตรวจสอบการ import ActivityDebugComponent
-import ActivityDebugComponent from '../components/ActivityDebugComponent';
-
-// Component หลัก
 const ChildDashboard = ({ childId = "C001" }) => {
-  const [showDebug, setShowDebug] = useState(false);
+  const [activeTab, setActiveTab] = useState('good-behaviors');
+  const [children, setChildren] = useState([]);
+  const [goodBehaviors, setGoodBehaviors] = useState([]);
+  const [badBehaviors, setBadBehaviors] = useState([]);
+  const [rewards, setRewards] = useState([]);
+  const [selectedChild, setSelectedChild] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [notification, setNotification] = useState(null);
+  const [recordingLoading, setRecordingLoading] = useState(false);
 
-  console.log('🏁 ChildDashboard rendered with childId:', childId);
+  // API Base URL
+  const API_URL = 'https://sertjerm.com/my-kids-api/api.php';
 
-  // ใช้ hook ที่แก้ไขแล้ว
-  const {
-    children,
-    goodBehaviors,
-    badBehaviors,
-    rewards,
-    selectedChild,
-    setSelectedChild,
-    loading,
-    error,
-    refetchAll,
-  } = useChildDashboardData(childId);
+  // โหลดข้อมูลทั้งหมด
+  const loadAllData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
 
-  console.log('📊 Dashboard data:', { 
-    childrenCount: children?.length, 
-    goodBehaviorsCount: goodBehaviors?.length,
-    badBehaviorsCount: badBehaviors?.length,
-    rewardsCount: rewards?.length,
-    selectedChild: selectedChild?.name,
-    loading,
-    error 
-  });
+      console.log('🔄 Loading child dashboard data...');
 
-  // ใช้ hook สำหรับบันทึกกิจกรรม
-  const { 
-    recordActivity, 
-    loading: recordingLoading, 
-    error: recordingError,
-    lastActivity,
-    reset: resetRecording 
-  } = useActivityRecorder(
-    // onSuccess callback
-    (result) => {
-      console.log('✅ Activity recorded successfully:', result);
-      setNotification({
-        type: 'success',
-        message: 'บันทึกกิจกรรมสำเร็จ!',
-        data: result
+      const [
+        childrenRes,
+        goodBehaviorsRes,
+        badBehaviorsRes,
+        rewardsRes
+      ] = await Promise.all([
+        fetch(`${API_URL}?children`),
+        fetch(`${API_URL}?good-behaviors`),
+        fetch(`${API_URL}?bad-behaviors`),
+        fetch(`${API_URL}?rewards`)
+      ]);
+
+      const [
+        childrenData,
+        goodBehaviorsData,
+        badBehaviorsData,
+        rewardsData
+      ] = await Promise.all([
+        childrenRes.json(),
+        goodBehaviorsRes.json(),
+        badBehaviorsRes.json(),
+        rewardsRes.json()
+      ]);
+
+      console.log('📊 Child dashboard data loaded:', {
+        children: childrenData,
+        goodBehaviors: goodBehaviorsData,
+        badBehaviors: badBehaviorsData,
+        rewards: rewardsData
       });
-      refetchAll(); // รีเฟรชข้อมูลทั้งหมด
+
+      // แปลงข้อมูลเป็นรูปแบบที่ใช้งาน
+      setChildren(Array.isArray(childrenData) ? childrenData.map(child => ({
+        id: child.Id,
+        name: child.Name,
+        age: child.Age,
+        avatar: child.AvatarPath || '👧',
+        totalPoints: 0 // จะคำนวณจาก API อื่น
+      })) : []);
+
+      setGoodBehaviors(Array.isArray(goodBehaviorsData) ? goodBehaviorsData.map(behavior => ({
+        id: behavior.Id,
+        name: behavior.Name,
+        points: behavior.Points,
+        color: behavior.Color,
+        category: behavior.Category,
+        isRepeatable: behavior.IsRepeatable
+      })) : []);
+
+      setBadBehaviors(Array.isArray(badBehaviorsData) ? badBehaviorsData.map(behavior => ({
+        id: behavior.Id,
+        name: behavior.Name,
+        points: behavior.Points,
+        color: behavior.Color,
+        category: behavior.Category,
+        isRepeatable: behavior.IsRepeatable
+      })) : []);
+
+      setRewards(Array.isArray(rewardsData) ? rewardsData.map(reward => ({
+        id: reward.Id,
+        name: reward.Name,
+        cost: reward.Cost,
+        color: reward.Color,
+        category: reward.Category
+      })) : []);
+
+      // เลือกเด็กคนแรกเป็นค่าเริ่มต้น
+      if (childrenData && childrenData.length > 0) {
+        const firstChild = {
+          id: childrenData[0].Id,
+          name: childrenData[0].Name,
+          age: childrenData[0].Age,
+          avatar: childrenData[0].AvatarPath || '👧',
+          totalPoints: 0
+        };
+        setSelectedChild(firstChild);
+      }
+
+    } catch (err) {
+      console.error('❌ Error loading data:', err);
+      setError(`ไม่สามารถโหลดข้อมูลได้: ${err.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // บันทึกกิจกรรม
+  const recordActivity = async (childId, item, type, count = 1, note = '') => {
+    try {
+      setRecordingLoading(true);
+      
+      const activityData = {
+        ChildId: childId,
+        ItemId: item.id,
+        ActivityType: type === 'reward' ? 'Reward' : (item.points > 0 ? 'Good' : 'Bad'),
+        Count: count,
+        EarnedPoints: type === 'reward' ? -item.cost : (item.points * count),
+        Note: note || `บันทึกจาก Child Dashboard`,
+        ActivityDate: new Date().toISOString().split('T')[0]
+      };
+
+      console.log('🎯 Recording activity:', activityData);
+
+      const response = await fetch(`${API_URL}?activities`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(activityData)
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        setNotification({
+          type: 'success',
+          message: `บันทึก${type === 'reward' ? 'รางวัล' : 'พฤติกรรม'}สำเร็จ!`,
+          details: `${item.name} ${type === 'reward' ? `(-${item.cost} คะแนน)` : `(+${item.points} คะแนน)`}`
+        });
+        
+        // อัปเดตคะแนนเด็ก
+        if (selectedChild) {
+          setSelectedChild(prev => ({
+            ...prev,
+            totalPoints: prev.totalPoints + (type === 'reward' ? -item.cost : item.points)
+          }));
+        }
+      } else {
+        throw new Error(result.error || 'บันทึกไม่สำเร็จ');
+      }
+
+    } catch (error) {
+      console.error('❌ Recording failed:', error);
+      setNotification({
+        type: 'error',
+        message: 'เกิดข้อผิดพลาด: ' + error.message
+      });
+    } finally {
+      setRecordingLoading(false);
       
       // ซ่อน notification หลัง 3 วินาที
       setTimeout(() => setNotification(null), 3000);
-    },
-    // onError callback
-    (error) => {
-      console.error('❌ Activity recording failed:', error);
-      setNotification({
-        type: 'error',
-        message: 'เกิดข้อผิดพลาด: ' + error.message,
-        error: error
-      });
-      
-      // ซ่อน notification หลัง 5 วินาที
-      setTimeout(() => setNotification(null), 5000);
     }
-  );
+  };
 
-  // ฟังก์ชันบันทึกพฤติกรรม
+  // Handle behavior click
   const handleBehaviorClick = useCallback(async (behavior) => {
     if (!selectedChild) {
       setNotification({
@@ -88,17 +181,10 @@ const ChildDashboard = ({ childId = "C001" }) => {
       return;
     }
 
-    try {
-      console.log(`🎯 Recording behavior: ${behavior.name} for child: ${selectedChild.name}`);
-      
-      await recordActivity(selectedChild.id, behavior, 'behavior', 1, `บันทึกจาก Child Dashboard`);
-      
-    } catch (error) {
-      console.error('❌ Failed to record behavior:', error);
-    }
-  }, [selectedChild, recordActivity]);
+    await recordActivity(selectedChild.id, behavior, 'behavior', 1);
+  }, [selectedChild]);
 
-  // ฟังก์ชันบันทึกรางวัล
+  // Handle reward click
   const handleRewardClick = useCallback(async (reward) => {
     if (!selectedChild) {
       setNotification({
@@ -108,7 +194,6 @@ const ChildDashboard = ({ childId = "C001" }) => {
       return;
     }
 
-    // ตรวจสอบคะแนนเพียงพอ
     if (selectedChild.totalPoints < reward.cost) {
       setNotification({
         type: 'error',
@@ -117,48 +202,26 @@ const ChildDashboard = ({ childId = "C001" }) => {
       return;
     }
 
-    try {
-      console.log(`🎁 Recording reward: ${reward.name} for child: ${selectedChild.name}`);
-      
-      await recordActivity(selectedChild.id, reward, 'reward', 1, `แลกรางวัล: ${reward.name}`);
-      
-    } catch (error) {
-      console.error('❌ Failed to record reward:', error);
-    }
-  }, [selectedChild, recordActivity]);
+    await recordActivity(selectedChild.id, reward, 'reward', 1);
+  }, [selectedChild]);
 
-  // Error boundary wrapper
-  if (typeof useChildDashboardData !== 'function') {
-    return (
-      <div className="min-h-screen bg-red-100 flex items-center justify-center">
-        <div className="bg-white p-8 rounded-lg shadow-lg max-w-md text-center">
-          <AlertCircle className="w-16 h-16 mx-auto mb-4 text-red-500" />
-          <h2 className="text-xl font-bold text-red-600 mb-2">Hook Import Error</h2>
-          <p className="text-gray-600">
-            ไม่สามารถโหลด useChildDashboardData hook ได้<br/>
-            กรุณาตรวจสอบไฟล์ src/hooks/useApi.js
-          </p>
-        </div>
-      </div>
-    );
-  }
+  useEffect(() => {
+    loadAllData();
+  }, []);
 
-  // แสดง Loading
+  // Loading state
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-100 via-purple-100 to-pink-100 flex items-center justify-center">
         <div className="text-center">
           <RefreshCw className="w-12 h-12 animate-spin text-blue-500 mx-auto mb-4" />
-          <p className="text-lg text-gray-700">กำลังโหลดข้อมูล...</p>
-          <div className="mt-2 text-sm text-gray-500">
-            กำลังโหลดเด็ก, พฤติกรรม และรางวัล...
-          </div>
+          <p className="text-lg text-purple-600 font-medium">กำลังโหลดข้อมูล...</p>
         </div>
       </div>
     );
   }
 
-  // แสดง Error
+  // Error state
   if (error) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-red-100 via-pink-100 to-purple-100 flex items-center justify-center">
@@ -167,7 +230,7 @@ const ChildDashboard = ({ childId = "C001" }) => {
           <h2 className="text-2xl font-bold text-red-600 mb-2">เกิดข้อผิดพลาด</h2>
           <p className="text-gray-600 mb-4">{error}</p>
           <button
-            onClick={refetchAll}
+            onClick={loadAllData}
             className="bg-red-500 text-white px-6 py-2 rounded-lg hover:bg-red-600 transition-colors"
           >
             ลองใหม่อีกครั้ง
@@ -177,64 +240,40 @@ const ChildDashboard = ({ childId = "C001" }) => {
     );
   }
 
-  // ตรวจสอบข้อมูลพื้นฐาน
-  if (!children || children.length === 0) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-yellow-100 via-orange-100 to-red-100 flex items-center justify-center">
-        <div className="text-center p-8 bg-white rounded-xl shadow-lg max-w-md">
-          <AlertCircle className="w-16 h-16 mx-auto mb-4 text-yellow-500" />
-          <h2 className="text-2xl font-bold text-yellow-600 mb-2">ไม่มีข้อมูลเด็ก</h2>
-          <p className="text-gray-600 mb-4">
-            ไม่พบข้อมูลเด็กในระบบ<br/>
-            กรุณาเพิ่มข้อมูลเด็กก่อนใช้งาน
-          </p>
-          <button
-            onClick={refetchAll}
-            className="bg-yellow-500 text-white px-6 py-2 rounded-lg hover:bg-yellow-600 transition-colors"
-          >
-            รีเฟรชข้อมูล
-          </button>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-100 via-purple-100 to-pink-100 p-4">
+    <div className="min-h-screen bg-gradient-to-br from-blue-100 via-purple-100 to-pink-100">
       {/* Notification */}
       {notification && (
-        <div className={`fixed top-20 left-1/2 transform -translate-x-1/2 z-40 p-4 rounded-lg shadow-lg ${
+        <div className={`fixed top-4 left-1/2 transform -translate-x-1/2 z-50 p-4 rounded-lg shadow-lg flex items-center gap-3 max-w-md ${
           notification.type === 'success' 
             ? 'bg-green-500 text-white' 
             : 'bg-red-500 text-white'
-        } flex items-center gap-3 max-w-md`}>
+        }`}>
           {notification.type === 'success' ? (
             <CheckCircle className="w-5 h-5" />
           ) : (
             <AlertCircle className="w-5 h-5" />
           )}
-          <div>
+          <div className="flex-1">
             <div className="font-medium">{notification.message}</div>
-            {notification.data && (
-              <div className="text-sm opacity-90">
-                บันทึกเรียบร้อยแล้ว
-              </div>
+            {notification.details && (
+              <div className="text-sm opacity-90">{notification.details}</div>
             )}
           </div>
           <button
             onClick={() => setNotification(null)}
-            className="ml-auto text-white hover:text-gray-200"
+            className="text-white hover:text-gray-200 text-xl"
           >
             ×
           </button>
         </div>
       )}
 
-      <div className="max-w-6xl mx-auto">
+      <div className="max-w-6xl mx-auto p-4">
         {/* Header */}
         <div className="text-center mb-8">
           <h1 className="text-4xl font-bold text-gray-800 mb-4">
-            🌟 MyKids Dashboard 🌟
+            🌟 MyKids - หน้าเด็ก 🌟
           </h1>
           
           {/* Child Selector */}
@@ -245,10 +284,10 @@ const ChildDashboard = ({ childId = "C001" }) => {
                 onChange={(e) => {
                   const child = children.find(c => c.id === e.target.value);
                   setSelectedChild(child);
-                  console.log('👶 Selected child:', child);
                 }}
                 className="bg-white border-2 border-purple-300 rounded-xl px-4 py-2 text-lg font-semibold focus:outline-none focus:border-purple-500 transition-colors"
               >
+                <option value="">เลือกเด็ก (0 คะแนน)</option>
                 {children.map(child => (
                   <option key={child.id} value={child.id}>
                     {child.name} ({child.totalPoints || 0} คะแนน)
@@ -281,159 +320,251 @@ const ChildDashboard = ({ childId = "C001" }) => {
           )}
         </div>
 
-        {/* Good Behaviors */}
-        {goodBehaviors && goodBehaviors.length > 0 && (
-          <div className="mb-8">
-            <h3 className="text-2xl font-bold text-gray-800 mb-4 flex items-center gap-2">
-              <Star className="text-yellow-500" />
-              พฤติกรรมดี ({goodBehaviors.length})
-            </h3>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-              {goodBehaviors.map((behavior) => (
+        {/* Tab Navigation */}
+        <div className="bg-white/60 backdrop-blur-sm rounded-2xl p-1 mb-6 border border-purple-200">
+          <nav className="flex space-x-1">
+            {[
+              { id: 'good-behaviors', label: 'พฤติกรรมดี', icon: CheckCircle, count: goodBehaviors.length, color: 'text-green-600' },
+              { id: 'bad-behaviors', label: 'พฤติกรรมไม่ดี', icon: XCircle, count: badBehaviors.length, color: 'text-red-600' },
+              { id: 'rewards', label: 'รางวัล', icon: Gift, count: rewards.length, color: 'text-purple-600' }
+            ].map((tab) => {
+              const Icon = tab.icon;
+              return (
                 <button
-                  key={behavior.id}
-                  onClick={() => handleBehaviorClick(behavior)}
-                  disabled={recordingLoading}
-                  className={`bg-white rounded-xl shadow-lg p-4 hover:shadow-xl transition-all duration-300 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed ${
-                    recordingLoading ? 'animate-pulse' : ''
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`flex-1 flex items-center justify-center space-x-2 py-3 px-4 rounded-xl font-medium transition-all duration-300 ${
+                    activeTab === tab.id
+                      ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-lg transform scale-[1.02]'
+                      : `${tab.color} hover:bg-purple-100/50`
                   }`}
-                  style={{ borderLeft: `6px solid ${behavior.color || '#4ADE80'}` }}
                 >
-                  <div className="text-3xl mb-2">⭐</div>
-                  <div className="font-bold text-gray-800 mb-2">
-                    {behavior.name}
-                  </div>
-                  <div className="text-green-600 font-semibold">
-                    +{behavior.points} คะแนน
-                  </div>
-                  {behavior.category && (
-                    <div className="text-xs text-gray-500 mt-1">
-                      {behavior.category}
-                    </div>
-                  )}
+                  <Icon className="w-4 h-4" />
+                  <span className="hidden sm:inline">{tab.label}</span>
+                  <span className={`text-xs px-2 py-1 rounded-full ${
+                    activeTab === tab.id 
+                      ? 'bg-white/20 text-white' 
+                      : 'bg-purple-100 text-purple-600'
+                  }`}>
+                    {tab.count}
+                  </span>
                 </button>
-              ))}
-            </div>
-          </div>
-        )}
+              );
+            })}
+          </nav>
+        </div>
 
-        {/* Bad Behaviors */}
-        {badBehaviors && badBehaviors.length > 0 && (
-          <div className="mb-8">
-            <h3 className="text-2xl font-bold text-gray-800 mb-4 flex items-center gap-2">
-              <AlertCircle className="text-red-500" />
-              พฤติกรรมไม่ดี ({badBehaviors.length})
-            </h3>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-              {badBehaviors.map((behavior) => (
-                <button
-                  key={behavior.id}
-                  onClick={() => handleBehaviorClick(behavior)}
-                  disabled={recordingLoading}
-                  className={`bg-white rounded-xl shadow-lg p-4 hover:shadow-xl transition-all duration-300 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed ${
-                    recordingLoading ? 'animate-pulse' : ''
-                  }`}
-                  style={{ borderLeft: `6px solid ${behavior.color || '#EF4444'}` }}
-                >
-                  <div className="text-3xl mb-2">❌</div>
-                  <div className="font-bold text-gray-800 mb-2">
-                    {behavior.name}
-                  </div>
-                  <div className="text-red-600 font-semibold">
-                    {behavior.points} คะแนน
-                  </div>
-                  {behavior.category && (
-                    <div className="text-xs text-gray-500 mt-1">
-                      {behavior.category}
-                    </div>
-                  )}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Rewards */}
-        {rewards && rewards.length > 0 && (
-          <div className="mb-8">
-            <h3 className="text-2xl font-bold text-gray-800 mb-4 flex items-center gap-2">
-              <Gift className="text-purple-500" />
-              รางวัล ({rewards.length})
-            </h3>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-              {rewards.map((reward) => {
-                const canAfford = selectedChild && selectedChild.totalPoints >= reward.cost;
-                
-                return (
-                  <button
-                    key={reward.id}
-                    onClick={() => handleRewardClick(reward)}
-                    disabled={recordingLoading || !canAfford}
-                    className={`bg-white rounded-xl shadow-lg p-4 transition-all duration-300 transform hover:scale-105 ${
-                      canAfford 
-                        ? 'hover:shadow-xl cursor-pointer' 
-                        : 'opacity-50 cursor-not-allowed'
-                    } ${recordingLoading ? 'animate-pulse' : ''}`}
-                    style={{ borderLeft: `6px solid ${reward.color || '#A855F7'}` }}
-                  >
-                    <div className="text-3xl mb-2">🎁</div>
-                    <div className="font-bold text-gray-800 mb-2">
-                      {reward.name}
-                    </div>
-                    <div className={`font-semibold ${canAfford ? 'text-purple-600' : 'text-gray-400'}`}>
-                      {reward.cost} คะแนน
-                    </div>
-                    {reward.category && (
-                      <div className="text-xs text-gray-500 mt-1">
-                        {reward.category}
+        {/* Content */}
+        <div className="pb-8">
+          {/* Good Behaviors Tab */}
+          {activeTab === 'good-behaviors' && (
+            <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 border border-purple-200">
+              <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center">
+                <CheckCircle className="w-5 h-5 mr-2 text-green-500" />
+                พฤติกรรมดี - กดเพื่อบันทึก ({goodBehaviors.length} รายการ)
+              </h3>
+              
+              {goodBehaviors.length > 0 ? (
+                <div className="space-y-2">
+                  {goodBehaviors.map((behavior) => (
+                    <button
+                      key={behavior.id}
+                      onClick={() => handleBehaviorClick(behavior)}
+                      disabled={recordingLoading || !selectedChild}
+                      className="w-full flex items-center justify-between p-4 bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg border-l-4 border-green-400 hover:shadow-md transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {/* Left Side */}
+                      <div className="flex items-center space-x-4">
+                        <div className="flex-shrink-0">
+                          <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
+                            <CheckCircle className="w-5 h-5 text-green-600" />
+                          </div>
+                        </div>
+                        
+                        <div className="flex-1 text-left">
+                          <h4 className="font-bold text-gray-800">{behavior.name}</h4>
+                          <p className="text-sm text-gray-600">{behavior.category || 'ทั่วไป'}</p>
+                        </div>
                       </div>
-                    )}
-                    {!canAfford && selectedChild && (
-                      <div className="text-xs text-red-500 mt-1">
-                        ต้องการอีก {reward.cost - selectedChild.totalPoints} คะแนน
-                      </div>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        )}
 
-        {/* Last Activity Info */}
-        {lastActivity && (
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
-            <div className="text-sm text-blue-700">
-              <strong>กิจกรรมล่าสุด:</strong> {lastActivity.item.name} 
-              {lastActivity.type === 'behavior' ? ' (พฤติกรรม)' : ' (รางวัล)'}
-              <span className="ml-2 text-xs text-blue-500">
-                {new Date(lastActivity.timestamp).toLocaleTimeString('th-TH')}
-              </span>
+                      {/* Right Side */}
+                      <div className="flex items-center space-x-3">
+                        <div className="text-right">
+                          <div className="flex items-center space-x-1">
+                            <Star className="w-4 h-4 text-yellow-500" />
+                            <span className="font-bold text-green-600">+{behavior.points}</span>
+                          </div>
+                          <span className="text-xs text-gray-500">คะแนน</span>
+                        </div>
+                        
+                        <div className="flex items-center space-x-2">
+                          {behavior.isRepeatable ? (
+                            <div className="flex items-center space-x-1 bg-green-100 text-green-700 px-3 py-1 rounded-full text-xs">
+                              <Repeat className="w-3 h-3" />
+                              <span>ทำซ้ำได้</span>
+                            </div>
+                          ) : (
+                            <span className="bg-gray-100 text-gray-700 px-3 py-1 rounded-full text-xs">
+                              ครั้งเดียว
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8 text-gray-500">
+                  <CheckCircle className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                  <p>ไม่มีพฤติกรรมดี</p>
+                </div>
+              )}
             </div>
-          </div>
-        )}
+          )}
+
+          {/* Bad Behaviors Tab */}
+          {activeTab === 'bad-behaviors' && (
+            <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 border border-purple-200">
+              <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center">
+                <XCircle className="w-5 h-5 mr-2 text-red-500" />
+                พฤติกรรมไม่ดี - กดเพื่อบันทึก ({badBehaviors.length} รายการ)
+              </h3>
+              
+              {badBehaviors.length > 0 ? (
+                <div className="space-y-2">
+                  {badBehaviors.map((behavior) => (
+                    <button
+                      key={behavior.id}
+                      onClick={() => handleBehaviorClick(behavior)}
+                      disabled={recordingLoading || !selectedChild}
+                      className="w-full flex items-center justify-between p-4 bg-gradient-to-r from-red-50 to-pink-50 rounded-lg border-l-4 border-red-400 hover:shadow-md transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {/* Left Side */}
+                      <div className="flex items-center space-x-4">
+                        <div className="flex-shrink-0">
+                          <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
+                            <XCircle className="w-5 h-5 text-red-600" />
+                          </div>
+                        </div>
+                        
+                        <div className="flex-1 text-left">
+                          <h4 className="font-bold text-gray-800">{behavior.name}</h4>
+                          <p className="text-sm text-gray-600">{behavior.category || 'ทั่วไป'}</p>
+                        </div>
+                      </div>
+
+                      {/* Right Side */}
+                      <div className="flex items-center space-x-3">
+                        <div className="text-right">
+                          <div className="flex items-center space-x-1">
+                            <Minus className="w-4 h-4 text-red-500" />
+                            <span className="font-bold text-red-600">{behavior.points}</span>
+                          </div>
+                          <span className="text-xs text-gray-500">คะแนน</span>
+                        </div>
+                        
+                        <div className="flex items-center space-x-2">
+                          {behavior.isRepeatable ? (
+                            <div className="flex items-center space-x-1 bg-red-100 text-red-700 px-3 py-1 rounded-full text-xs">
+                              <Repeat className="w-3 h-3" />
+                              <span>ทำซ้ำได้</span>
+                            </div>
+                          ) : (
+                            <span className="bg-gray-100 text-gray-700 px-3 py-1 rounded-full text-xs">
+                              ครั้งเดียว
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8 text-gray-500">
+                  <XCircle className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                  <p>ไม่มีพฤติกรรมไม่ดี</p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Rewards Tab */}
+          {activeTab === 'rewards' && (
+            <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 border border-purple-200">
+              <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center">
+                <Gift className="w-5 h-5 mr-2 text-purple-500" />
+                รางวัล - กดเพื่อแลก ({rewards.length} รายการ)
+              </h3>
+              
+              {rewards.length > 0 ? (
+                <div className="space-y-2">
+                  {rewards.map((reward) => {
+                    const canAfford = selectedChild && selectedChild.totalPoints >= reward.cost;
+                    
+                    return (
+                      <button
+                        key={reward.id}
+                        onClick={() => handleRewardClick(reward)}
+                        disabled={recordingLoading || !canAfford || !selectedChild}
+                        className={`w-full flex items-center justify-between p-4 bg-gradient-to-r from-purple-50 to-pink-50 rounded-lg border-l-4 border-purple-400 transition-all ${
+                          canAfford && selectedChild
+                            ? 'hover:shadow-md cursor-pointer'
+                            : 'opacity-50 cursor-not-allowed'
+                        }`}
+                      >
+                        {/* Left Side */}
+                        <div className="flex items-center space-x-4">
+                          <div className="flex-shrink-0">
+                            <div className="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center">
+                              <Gift className="w-5 h-5 text-purple-600" />
+                            </div>
+                          </div>
+                          
+                          <div className="flex-1 text-left">
+                            <h4 className="font-bold text-gray-800">{reward.name}</h4>
+                            <p className="text-sm text-gray-600">{reward.category || 'ทั่วไป'}</p>
+                            {!canAfford && selectedChild && (
+                              <p className="text-xs text-red-500 mt-1">
+                                ต้องการอีก {reward.cost - selectedChild.totalPoints} คะแนน
+                              </p>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Right Side */}
+                        <div className="text-right">
+                          <div className="flex items-center space-x-1">
+                            <Gift className="w-4 h-4 text-purple-500" />
+                            <span className={`font-bold ${canAfford ? 'text-purple-600' : 'text-gray-400'}`}>
+                              {reward.cost}
+                            </span>
+                          </div>
+                          <span className="text-xs text-gray-500">คะแนน</span>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="text-center py-8 text-gray-500">
+                  <Gift className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                  <p>ไม่มีรางวัล</p>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
 
         {/* Recording Status */}
         {recordingLoading && (
-          <div className="fixed bottom-20 left-1/2 transform -translate-x-1/2 bg-blue-500 text-white px-6 py-3 rounded-full shadow-lg flex items-center gap-3 z-30">
+          <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 bg-blue-500 text-white px-6 py-3 rounded-full shadow-lg flex items-center gap-3 z-30">
             <RefreshCw className="w-5 h-5 animate-spin" />
             <span>กำลังบันทึก...</span>
           </div>
-        )}
-
-        {/* Debug Panel - ตรวจสอบว่ามี ActivityDebugComponent หรือไม่ */}
-        {ActivityDebugComponent && (
-          <ActivityDebugComponent 
-            isVisible={showDebug}
-            onToggle={() => setShowDebug(!showDebug)}
-          />
         )}
       </div>
     </div>
   );
 };
-
-// *** ตรวจสอบการ export ***
-console.log('🔗 Exporting ChildDashboard component');
 
 export default ChildDashboard;
