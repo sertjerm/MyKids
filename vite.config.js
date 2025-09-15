@@ -6,10 +6,7 @@ import react from "@vitejs/plugin-react";
 
 export default defineConfig({
   plugins: [react()],
-
-  // ใช้ /mykids/ ทั้ง dev และ prod
   base: "/mykids/",
-
   build: {
     outDir: "dist",
     assetsDir: "assets",
@@ -25,23 +22,32 @@ export default defineConfig({
       },
     },
   },
-
   server: {
     port: 5173,
     host: true,
-    open: "/mykids/", // เปิด browser ที่ path ที่ถูกต้อง
-    cors: true, // เปิด CORS สำหรับ development
-    // ลบ proxy configuration เพราะใช้การเชื่อมต่อโดยตรง
+    open: "/mykids/",
+    proxy: {
+      // ให้ frontend เรียก /api/... แล้วให้ Vite forward ไปยัง backend จริง
+      "/api": {
+        target: "http://localhost:8080", // เปลี่ยนเป็น URL backend ของคุณ (PHP)
+        changeOrigin: true,
+        secure: false,
+        // ถ้า backend ไม่มี prefix /api ให้เอา /api ออกก่อนส่งไป
+        // rewrite: (path) => path.replace(/^\/api/, ""),
+      },
+    },
   },
-
-  // สำหรับ development
   define: {
     __DEV__: process.env.NODE_ENV === "development",
     __PROD__: process.env.NODE_ENV === "production",
   },
-
-  // เพิ่ม optimizeDeps เพื่อ pre-bundle dependencies ที่จำเป็น
   optimizeDeps: {
-    include: ["axios", "react", "react-dom", "react-router-dom", "lucide-react"],
+    include: [
+      "axios",
+      "react",
+      "react-dom",
+      "react-router-dom",
+      "lucide-react",
+    ],
   },
 });

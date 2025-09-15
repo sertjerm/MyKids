@@ -1,6 +1,6 @@
 // src/services/api.js
 // MyKids API Interface - Real API Only (No MockData)
-// Version: 3.0 - Full Family System Support
+// Version: 3.1 - Fixed Login with Email/Password
 
 import axios from "axios";
 
@@ -14,7 +14,18 @@ const API_CONFIG = {
 // Error handling utility
 const handleApiError = (error, operation) => {
   console.error(`API Error in ${operation}:`, error);
-  throw new Error(`${operation} failed: ${error.message || error}`);
+  
+  // Extract meaningful error message from axios error
+  let errorMessage = error.message;
+  if (error.response?.data?.error) {
+    errorMessage = error.response.data.error;
+  } else if (error.response?.data?.message) {
+    errorMessage = error.response.data.message;
+  } else if (error.response?.statusText) {
+    errorMessage = error.response.statusText;
+  }
+  
+  throw new Error(`${operation} failed: ${errorMessage}`);
 };
 
 // HTTP request utility
@@ -52,10 +63,38 @@ export const getFamilies = async () => {
 
 export const loginFamily = async (email, password) => {
   try {
-    return await makeRequest("?login", {
+    const response = await makeRequest("?auth", {  // ✅ เปลี่ยนจาก ?login เป็น ?auth
       method: "POST",
       body: { email, password },
     });
+    
+    // ตรวจสอบ response structure และส่งกลับข้อมูลที่จำเป็น
+    if (response.success && response.family) {
+      // แปลง children data ให้ field names เป็น camelCase
+      const children = (response.children || []).map(child => ({
+        id: child.Id,
+        familyId: child.FamilyId,
+        name: child.Name,
+        age: parseInt(child.Age),
+        gender: child.Gender,
+        avatarPath: child.AvatarPath,
+        dateOfBirth: child.DateOfBirth,
+        currentPoints: parseInt(child.currentPoints || 0),
+        isActive: child.IsActive === '1'
+      }));
+
+      return {
+        id: response.family.id,
+        name: response.family.name,
+        email: response.family.email,
+        phone: response.family.phone,
+        avatarPath: response.family.avatarPath,
+        children: children,
+        token: response.token
+      };
+    } else {
+      throw new Error('Invalid response format from server');
+    }
   } catch (error) {
     handleApiError(error, "loginFamily");
   }
@@ -87,7 +126,7 @@ export const getChildren = async (familyId = null) => {
 
 export const getChild = async (childId) => {
   try {
-    return await makeRequest(`?children&childId=${childId}`);
+    return await makeRequest(`?children=${childId}`);
   } catch (error) {
     handleApiError(error, "getChild");
   }
@@ -119,11 +158,19 @@ export const getBehaviors = async (familyId, type = null) => {
 };
 
 export const getGoodBehaviors = async (familyId) => {
-  return await getBehaviors(familyId, "Good");
+  try {
+    return await makeRequest(`?good-behaviors&familyId=${familyId}`);
+  } catch (error) {
+    handleApiError(error, "getGoodBehaviors");
+  }
 };
 
 export const getBadBehaviors = async (familyId) => {
-  return await getBehaviors(familyId, "Bad");
+  try {
+    return await makeRequest(`?bad-behaviors&familyId=${familyId}`);
+  } catch (error) {
+    handleApiError(error, "getBadBehaviors");
+  }
 };
 
 export const createBehavior = async (behaviorData) => {
@@ -175,8 +222,8 @@ export const getDailyActivities = async (
     if (date) params.append("date", date);
     if (familyId) params.append("familyId", familyId);
     const endpoint = params.toString()
-      ? `?activities&${params.toString()}`
-      : "?activities";
+      ? `?daily-activities&${params.toString()}`
+      : "?daily-activities";
     return await makeRequest(endpoint);
   } catch (error) {
     handleApiError(error, "getDailyActivities");
@@ -185,7 +232,7 @@ export const getDailyActivities = async (
 
 export const recordActivity = async (activityData) => {
   try {
-    return await makeRequest("?activities", {
+    return await makeRequest("?daily-activities", {
       method: "POST",
       body: activityData,
     });
@@ -231,7 +278,20 @@ export const checkCanRedeemReward = async (childId, rewardId) => {
 
 export const getDashboardData = async (familyId) => {
   try {
-    return await makeRequest(`?dashboard&familyId=${familyId}`);
+    // อาจจะต้องรวม API หลายตัวเข้าด้วยกัน
+    const [children, behaviors, rewards, activities] = await Promise.all([
+      getChildren(familyId),
+      getBehaviors(familyId),
+      getRewards(familyId),
+      getDailyActivities(null, null, familyId)
+    ]);
+    
+    return {
+      children,
+      behaviors,
+      rewards,
+      activities
+    };
   } catch (error) {
     handleApiError(error, "getDashboardData");
   }

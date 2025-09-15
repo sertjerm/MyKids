@@ -1,8 +1,6 @@
 // src/App.jsx
 import React, { useState } from "react";
 import { Users } from "lucide-react";
-// ลบ mockData import ออก
-// import mockData, {...} from "./data/mockData";
 
 // Import API service
 import api from "./services/api";
@@ -12,7 +10,6 @@ import Avatar from "./components/Avatar";
 import BehaviorCard from "./components/BehaviorCard";
 import RewardCard from "./components/RewardCard";
 import PointsBadge from "./components/PointsBadge";
-// import LoginPage from "./components/LoginPage";
 import AdminDashboard from "./components/AdminDashboard";
 import ChildInterface from "./components/ChildInterface";
 import FamilyLogin from "./pages/FamilyLogin";
@@ -23,15 +20,11 @@ function App() {
   const [currentView, setCurrentView] = useState("login");
   const [selectedChild, setSelectedChild] = useState(null);
 
-  // เปลี่ยน handleLogin ให้รับ email, password แล้วเรียก api.loginFamily
-  const handleLogin = async (email, password) => {
-    try {
-      const family = await api.loginFamily(email, password);
-      setCurrentFamily(family);
-      setCurrentView("admin");
-    } catch (error) {
-      alert("Login failed: " + error.message);
-    }
+  // handleLogin รับ family object จาก FamilyLogin
+  const handleLogin = (family) => {
+    console.log('App received family:', family);
+    setCurrentFamily(family);
+    setCurrentView("admin");
   };
 
   const handleLogout = () => {
@@ -74,3 +67,4 @@ function App() {
 }
 
 export default App;
+
