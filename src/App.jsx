@@ -1,15 +1,8 @@
 // src/App.jsx
 import React, { useState } from "react";
 import { Users } from "lucide-react";
-import mockData, {
-  mockFamilies,
-  getBehaviorsByFamily,
-  getRewardsByFamily,
-  getChildrenByFamily,
-  calculateCurrentPoints,
-  canPerformBehavior,
-  canRedeemReward,
-} from "./data/mockData";
+// ลบ mockData import ออก
+// import mockData, {...} from "./data/mockData";
 
 // Import API service
 import api from "./services/api";
@@ -19,9 +12,10 @@ import Avatar from "./components/Avatar";
 import BehaviorCard from "./components/BehaviorCard";
 import RewardCard from "./components/RewardCard";
 import PointsBadge from "./components/PointsBadge";
-import LoginPage from "./components/LoginPage";
+// import LoginPage from "./components/LoginPage";
 import AdminDashboard from "./components/AdminDashboard";
 import ChildInterface from "./components/ChildInterface";
+import FamilyLogin from "./pages/FamilyLogin";
 
 // Main App Component
 function App() {
@@ -29,9 +23,15 @@ function App() {
   const [currentView, setCurrentView] = useState("login");
   const [selectedChild, setSelectedChild] = useState(null);
 
-  const handleLogin = (family) => {
-    setCurrentFamily(family);
-    setCurrentView("admin");
+  // เปลี่ยน handleLogin ให้รับ email, password แล้วเรียก api.loginFamily
+  const handleLogin = async (email, password) => {
+    try {
+      const family = await api.loginFamily(email, password);
+      setCurrentFamily(family);
+      setCurrentView("admin");
+    } catch (error) {
+      alert("Login failed: " + error.message);
+    }
   };
 
   const handleLogout = () => {
@@ -52,7 +52,7 @@ function App() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-pink-100 via-purple-50 to-indigo-100">
-      {currentView === "login" && <LoginPage onLogin={handleLogin} />}
+      {currentView === "login" && <FamilyLogin onLogin={handleLogin} />}
 
       {currentView === "admin" && currentFamily && (
         <AdminDashboard
