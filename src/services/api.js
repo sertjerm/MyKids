@@ -14,7 +14,7 @@ const API_CONFIG = {
 // Error handling utility
 const handleApiError = (error, operation) => {
   console.error(`API Error in ${operation}:`, error);
-  
+
   // Extract meaningful error message from axios error
   let errorMessage = error.message;
   if (error.response?.data?.error) {
@@ -24,7 +24,7 @@ const handleApiError = (error, operation) => {
   } else if (error.response?.statusText) {
     errorMessage = error.response.statusText;
   }
-  
+
   throw new Error(`${operation} failed: ${errorMessage}`);
 };
 
@@ -63,15 +63,16 @@ export const getFamilies = async () => {
 
 export const loginFamily = async (email, password) => {
   try {
-    const response = await makeRequest("?auth", {  // ✅ เปลี่ยนจาก ?login เป็น ?auth
+    const response = await makeRequest("?auth", {
+      // ✅ เปลี่ยนจาก ?login เป็น ?auth
       method: "POST",
       body: { email, password },
     });
-    
+
     // ตรวจสอบ response structure และส่งกลับข้อมูลที่จำเป็น
     if (response.success && response.family) {
       // แปลง children data ให้ field names เป็น camelCase
-      const children = (response.children || []).map(child => ({
+      const children = (response.children || []).map((child) => ({
         id: child.Id,
         familyId: child.FamilyId,
         name: child.Name,
@@ -80,7 +81,7 @@ export const loginFamily = async (email, password) => {
         avatarPath: child.AvatarPath,
         dateOfBirth: child.DateOfBirth,
         currentPoints: parseFloat(child.currentPoints || 0), // ✅ ใช้ parseFloat แทน parseInt
-        isActive: child.IsActive === '1'
+        isActive: child.IsActive === "1",
       }));
 
       return {
@@ -90,10 +91,10 @@ export const loginFamily = async (email, password) => {
         phone: response.family.phone,
         avatarPath: response.family.avatarPath,
         children: children,
-        token: response.token
+        token: response.token,
       };
     } else {
-      throw new Error('Invalid response format from server');
+      throw new Error("Invalid response format from server");
     }
   } catch (error) {
     handleApiError(error, "loginFamily");
@@ -232,14 +233,37 @@ export const getDailyActivities = async (
 
 export const recordActivity = async (activityData) => {
   try {
+    // ปรับ activityData ให้ตรงกับ API
+    const payload = {
+      ChildId: activityData.ChildId,
+      ActivityType: activityData.ActivityType,
+      ItemId: activityData.ItemId,
+      EarnedPoints: activityData.EarnedPoints,
+      Status: activityData.Status || "Approved",
+    };
+    // log ข้อมูลก่อนส่ง
+    console.log("recordActivity payload:", JSON.stringify(payload));
     return await makeRequest("?daily-activities", {
       method: "POST",
-      body: activityData,
+      body: payload,
     });
   } catch (error) {
     handleApiError(error, "recordActivity");
   }
 };
+
+// // ตัวอย่างข้อมูลที่ถูกต้อง
+// const activity = {
+//   ChildId: "C001",
+//   ActivityType: "Good", // หรือ "Bad", "Reward"
+//   ItemId: "B001", // รหัส behavior หรือ reward
+//   EarnedPoints: 5,
+//   Status: "Approved", // (optional)
+// };
+
+// recordActivity(activity)
+//   .then((res) => console.log("บันทึกกิจกรรมสำเร็จ", res))
+//   .catch((err) => console.error("บันทึกกิจกรรมล้มเหลว", err));
 
 // ============================================
 // UTILITY FUNCTIONS
@@ -283,14 +307,14 @@ export const getDashboardData = async (familyId) => {
       getChildren(familyId),
       getBehaviors(familyId),
       getRewards(familyId),
-      getDailyActivities(null, null, familyId)
+      getDailyActivities(null, null, familyId),
     ]);
-    
+
     return {
       children,
       behaviors,
       rewards,
-      activities
+      activities,
     };
   } catch (error) {
     handleApiError(error, "getDashboardData");
