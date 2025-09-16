@@ -1,44 +1,42 @@
-import React from "react";
-import { Star } from "lucide-react";
+// src/components/RewardCard.jsx
+import React from 'react';
+import { Star, Gift } from 'lucide-react';
 
-const RewardCard = ({
-  reward,
-  onSelect,
-  disabled = false,
-  childPoints = 0,
-}) => {
-  const canAfford = childPoints >= reward.Cost;
-  const actuallyDisabled = disabled || !canAfford;
-
+const RewardCard = ({ reward, onSelect, canAfford = true, disabled = false, showCost = true }) => {
   return (
-    <div
-      className={`flex items-center justify-between px-4 py-2 rounded-xl border cursor-pointer transition-all duration-200
-        ${
-          actuallyDisabled
-            ? "bg-gray-50 text-gray-400 cursor-not-allowed"
-            : "bg-white hover:bg-purple-50"
-        }
-        ${canAfford ? "border-purple-400 shadow" : "border-gray-200"}
-      `}
-      onClick={actuallyDisabled ? undefined : () => onSelect(reward)}
-      style={{ minHeight: 48 }}
+    <div 
+      className={`p-5 rounded-2xl border-2 cursor-pointer transition-all duration-300 transform hover:scale-105 ${
+        disabled 
+          ? 'border-gray-200 bg-gray-50/50 opacity-50 cursor-not-allowed'
+          : canAfford
+            ? 'border-yellow-200 bg-gradient-to-br from-yellow-50 to-orange-50 hover:shadow-lg'
+            : 'border-gray-200 bg-gray-50 opacity-75'
+      }`}
+      onClick={disabled ? undefined : () => onSelect(reward)}
     >
-      <div className="flex items-center gap-3 min-w-0">
-        <div className="w-6 h-6 rounded-xl bg-purple-100 flex items-center justify-center">
-          {reward.ImagePath}
+      <div className="flex items-center gap-4">
+        <div className="flex-shrink-0">
+          <Gift className={`w-8 h-8 ${canAfford ? 'text-orange-500' : 'text-gray-400'}`} />
         </div>
-        <div className="font-semibold truncate">{reward.Name}</div>
-        <div className="text-xs text-gray-500 truncate">{reward.Category}</div>
-      </div>
-      <div
-        className={`px-2 py-1 rounded-lg text-sm font-bold flex items-center gap-1 ${
-          canAfford
-            ? "bg-purple-100 text-purple-700"
-            : "bg-gray-200 text-gray-500"
-        }`}
-      >
-        <Star className="w-4 h-4" />
-        {reward.Cost}
+        <div className="flex-1 min-w-0">
+          <h3 className="font-bold text-gray-800 text-lg mb-1">{reward.Name}</h3>
+          <p className="text-sm text-gray-600 font-medium mb-1">{reward.Category}</p>
+          {reward.Description && (
+            <p className="text-xs text-gray-500 leading-relaxed">{reward.Description}</p>
+          )}
+        </div>
+        {showCost && (
+          <div className="flex-shrink-0">
+            <div className={`px-3 py-2 rounded-xl text-sm font-bold shadow-md flex items-center gap-1 ${
+              canAfford 
+                ? 'bg-gradient-to-r from-yellow-400 to-orange-500 text-white' 
+                : 'bg-gray-200 text-gray-500'
+            }`}>
+              <Star className="w-3 h-3" />
+              {reward.Cost} คะแนน
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

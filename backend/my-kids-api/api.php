@@ -9,14 +9,15 @@ setCorsHeaders(); // will exit() on OPTIONS
 
 // ----------- Utils -----------
 function parseRequest(): array {
-    $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
+    $method = strtoupper($_SERVER['REQUEST_METHOD'] ?? 'GET');
     $query  = $_SERVER['QUERY_STRING'] ?? '';
     parse_str($query, $params);
 
     $endpoint = null; $id = null;
+    
     foreach ([
         'families','children','behaviors','good-behaviors','bad-behaviors',
-        'rewards','activities','daily-activities','auth','health'
+        'rewards','activities','daily-activities','auth','login','health'
     ] as $ep) {
         if (array_key_exists($ep, $params)) {
             $endpoint = $ep;
@@ -24,6 +25,7 @@ function parseRequest(): array {
             break;
         }
     }
+    
     return [$method, $endpoint, $id, $params];
 }
 
@@ -54,57 +56,76 @@ function handleHealth(): void {
     ], 200);
 }
 
-// Auth: POST /auth?login  { FamilyId, Password }
+// Auth/Login: POST /api.php?auth หรือ POST /api.php?login { email, password }
 function handleAuth(PDO $pdo, string $method, array $params): void {
-    if ($method !== 'POST' || !isset($params['login'])) {
-        sendJson(['error' => 'Invalid auth endpoint'], 400);
+    if ($method !== 'POST') {
+        sendJson(['error' => 'Only POST method allowed for authentication'], 405);
     }
 
     $body = getJsonBody();
-    $familyId = trim($body['FamilyId'] ?? '');
-    $password = (string)($body['Password'] ?? '');
+    $email = trim($body['email'] ?? '');
+    $password = (string)($body['password'] ?? '');
 
-    if ($familyId === '') {
-        sendJson(['error' => 'FamilyId is required'], 400);
+    if ($email === '') {
+        sendJson(['error' => 'Email is required'], 400);
     }
 
+    // ค้นหาครอบครัวจาก Email
     $stmt = $pdo->prepare("SELECT Id, Name, Password, Email, Phone, AvatarPath, IsActive 
-                             FROM Families WHERE Id = ? LIMIT 1");
-    $stmt->execute([$familyId]);
+                             FROM Families WHERE Email = ? LIMIT 1");
+    $stmt->execute([$email]);
     $row = $stmt->fetch();
 
     if (!$row) {
-        sendJson(['error' => 'Family not found'], 404);
+        sendJson(['error' => 'Family with this email not found'], 404);
     }
     if ((int)$row['IsActive'] !== 1) {
-        sendJson(['error' => 'Family is inactive'], 403);
+        sendJson(['error' => 'Family account is inactive'], 403);
     }
 
     $hash = (string)$row['Password'];
     $passOk = false;
+    
     // รองรับทั้ง bcrypt และกรณีรหัสว่าง
     if ($hash === '' && $password === '') {
         $passOk = true;
     } elseif (preg_match('/^\$2y\$/', $hash)) {
+        // bcrypt hash
         $passOk = password_verify($password, $hash);
     } else {
-        // ถ้าเก็บเป็น plain (ไม่แนะนำ) ก็เทียบตรง ๆ
+        // ถ้าเก็บเป็น plain text (ไม่แนะนำ) ก็เทียบตรง ๆ
         $passOk = hash_equals($hash, $password);
     }
 
     if (!$passOk) {
-        sendJson(['error' => 'Invalid password'], 401);
+        sendJson(['error' => 'Invalid email or password'], 401);
     }
 
-    // (ตัวอย่าง) payload ตอบกลับ
+    // ดึงข้อมูลเด็กในครอบครัวและคะแนนปัจจุบัน
+    $stmt = $pdo->prepare("
+        SELECT c.*,
+               COALESCE(SUM(da.EarnedPoints),0) AS currentPoints
+          FROM Children c
+          LEFT JOIN DailyActivity da
+                 ON da.ChildId = c.Id AND da.Status = 'Approved'
+         WHERE c.FamilyId = ? AND c.IsActive = 1
+         GROUP BY c.Id
+         ORDER BY c.Name
+    ");
+    $stmt->execute([$row['Id']]);
+    $children = $stmt->fetchAll();
+
+    // ส่งข้อมูลครอบครัวและเด็กกลับไป
     sendJson([
+        'success' => true,
         'family' => [
-            'Id'    => $row['Id'],
-            'Name'  => $row['Name'],
-            'Email' => $row['Email'],
-            'Phone' => $row['Phone'],
-            'AvatarPath' => $row['AvatarPath'],
+            'id'    => $row['Id'],
+            'name'  => $row['Name'],
+            'email' => $row['Email'],
+            'phone' => $row['Phone'],
+            'avatarPath' => $row['AvatarPath'],
         ],
+        'children' => $children,
         'token' => base64_encode($row['Id'] . '|' . time()), // placeholder token
     ]);
 }
@@ -160,8 +181,8 @@ function handleFamilies(PDO $pdo, string $method, ?string $id): void {
         $phone = trim($b['Phone'] ?? '');
         $avatar= trim($b['AvatarPath'] ?? '');
 
-        if ($name === '' || $pass === '') {
-            sendJson(['error' => 'Missing required: Name, Password'], 400);
+        if ($name === '' || $pass === '' || $email === '') {
+            sendJson(['error' => 'Missing required: Name, Password, Email'], 400);
         }
 
         $id = 'F' . str_pad((string)random_int(1,999),3,'0',STR_PAD_LEFT);
@@ -200,6 +221,8 @@ function handleChildren(PDO $pdo, string $method, ?string $id, array $params): v
             $rows = $stmt->fetchAll();
             if ($id && !$rows) sendJson(['error' => 'Child not found'], 404);
             sendJson($rows);
+            break;
+            
         case 'POST':
             $b = getJsonBody();
             $name     = trim($b['Name'] ?? '');
@@ -218,6 +241,8 @@ function handleChildren(PDO $pdo, string $method, ?string $id, array $params): v
             ");
             $stmt->execute([$newId, $familyId, $name, $age, $avatar ?: '🧒']);
             sendJson(['id' => $newId, 'message' => 'Child created']);
+            break;
+            
         default:
             sendJson(['error' => 'Method not allowed'], 405);
     }
@@ -243,6 +268,7 @@ function handleBehaviors(PDO $pdo, string $method, string $endpoint, array $para
             $stmt = $pdo->prepare($sql);
             $stmt->execute($bind);
             sendJson($stmt->fetchAll());
+            break;
 
         case 'POST':
             if ($endpoint !== 'behaviors') sendJson(['error' => 'POST not allowed here'], 405);
@@ -268,6 +294,7 @@ function handleBehaviors(PDO $pdo, string $method, string $endpoint, array $para
                 isset($b['IsRepeatable']) ? (int)$b['IsRepeatable'] : 0
             ]);
             sendJson(['id' => $id, 'message' => 'Behavior created']);
+            break;
 
         default:
             sendJson(['error' => 'Method not allowed'], 405);
@@ -289,6 +316,7 @@ function handleRewards(PDO $pdo, string $method, array $params): void {
             $stmt = $pdo->prepare($sql);
             $stmt->execute($bind);
             sendJson($stmt->fetchAll());
+            break;
 
         case 'POST':
             $b = getJsonBody();
@@ -313,6 +341,7 @@ function handleRewards(PDO $pdo, string $method, array $params): void {
                 $b['ImagePath'] ?? '🎁'
             ]);
             sendJson(['id' => $id, 'message' => 'Reward created']);
+            break;
 
         default:
             sendJson(['error' => 'Method not allowed'], 405);
@@ -350,6 +379,7 @@ function handleDailyActivities(PDO $pdo, string $method, array $params): void {
             $stmt = $pdo->prepare($sql);
             $stmt->execute($bind);
             sendJson($stmt->fetchAll());
+            break;
 
         case 'POST':
             $b = getJsonBody();
@@ -369,6 +399,8 @@ function handleDailyActivities(PDO $pdo, string $method, array $params): void {
             ");
             $stmt->execute([$childId, $atype, $itemId, $points, $status, date('Y-m-d')]);
             sendJson(['message' => 'Activity recorded']);
+            break;
+            
         default:
             sendJson(['error' => 'Method not allowed'], 405);
     }
@@ -378,8 +410,9 @@ function handleDailyActivities(PDO $pdo, string $method, array $params): void {
 try {
     [$method, $endpoint, $id, $params] = parseRequest();
 
-    // alias
+    // alias สำหรับ auth
     if ($endpoint === 'activities') $endpoint = 'daily-activities';
+    if ($endpoint === 'login') $endpoint = 'auth';
 
     if ($endpoint === 'health') {
         handleHealth(); // no DB dependency
@@ -421,3 +454,4 @@ try {
 } catch (Throwable $e) {
     handleError($e->getMessage(), 500);
 }
+?>

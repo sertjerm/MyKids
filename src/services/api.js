@@ -79,7 +79,7 @@ export const loginFamily = async (email, password) => {
         gender: child.Gender,
         avatarPath: child.AvatarPath,
         dateOfBirth: child.DateOfBirth,
-        currentPoints: parseInt(child.currentPoints || 0),
+        currentPoints: parseFloat(child.currentPoints || 0), // ✅ ใช้ parseFloat แทน parseInt
         isActive: child.IsActive === '1'
       }));
 

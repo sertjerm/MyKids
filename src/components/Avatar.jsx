@@ -1,18 +1,17 @@
-import React from "react";
-import { User } from "lucide-react";
+// src/components/Avatar.jsx
+import React from 'react';
+import { User } from 'lucide-react';
 
-const Avatar = ({ src, alt, size = "md", emoji }) => {
+const Avatar = ({ src, alt, size = 'md', emoji }) => {
   const sizeClasses = {
-    sm: "w-8 h-8",
-    md: "w-12 h-12",
-    lg: "w-16 h-16",
-    xl: "w-24 h-24",
+    sm: 'w-8 h-8',
+    md: 'w-12 h-12', 
+    lg: 'w-16 h-16',
+    xl: 'w-24 h-24'
   };
 
   return (
-    <div
-      className={`${sizeClasses[size]} rounded-full bg-gradient-to-br from-pink-200 to-purple-200 flex items-center justify-center overflow-hidden`}
-    >
+    <div className={`${sizeClasses[size]} rounded-full bg-gradient-to-br from-pink-200 to-purple-200 flex items-center justify-center overflow-hidden`}>
       {emoji ? (
         <span className="text-2xl">{emoji}</span>
       ) : src ? (

@@ -670,3 +670,195 @@
     @apply border-black;
   }
 }
+
+
+/* src/styles/global.css หรือ src/index.css */
+/* CSS สำหรับ MyKids Tracker - ใช้กับ design เดิม */
+
+/* Gradient Background */
+.gradient-background {
+  background: linear-gradient(135deg, 
+    #fce7f3 0%,   /* pink-100 */
+    #f3e8ff 25%,  /* purple-50 */
+    #ede9fe 50%,  /* violet-100 */
+    #e0e7ff 75%,  /* indigo-100 */
+    #dbeafe 100%  /* blue-100 */
+  );
+  min-height: 100vh;
+}
+
+/* Card Shadows */
+.card-shadow {
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+.card-shadow-lg {
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+}
+
+/* Behavior Cards */
+.behavior-card-good {
+  background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+  border-color: #bbf7d0;
+}
+
+.behavior-card-good:hover {
+  background: linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%);
+  border-color: #86efac;
+}
+
+.behavior-card-bad {
+  background: linear-gradient(135deg, #fef2f2 0%, #fecaca 100%);
+  border-color: #fca5a5;
+}
+
+.behavior-card-bad:hover {
+  background: linear-gradient(135deg, #fecaca 0%, #f87171 100%);
+  border-color: #ef4444;
+}
+
+/* Smooth transitions */
+* {
+  transition: all 0.2s ease-in-out;
+}
+
+/* Focus states */
+button:focus {
+  outline: 2px solid #8b5cf6;
+  outline-offset: 2px;
+}
+
+/* Loading spinner animation */
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
+
+/* Responsive text sizes */
+@media (max-width: 640px) {
+  .text-responsive {
+    font-size: 0.875rem;
+  }
+}
+
+@media (min-width: 641px) {
+  .text-responsive {
+    font-size: 1rem;
+  }
+}
+
+/* Glass morphism effect */
+.backdrop-blur-sm {
+  backdrop-filter: blur(4px);
+}
+
+/* Avatar gradient backgrounds */
+.avatar-gradient-1 {
+  background: linear-gradient(135deg, #fce7f3, #e879f9);
+}
+
+.avatar-gradient-2 {
+  background: linear-gradient(135deg, #e0e7ff, #8b5cf6);
+}
+
+.avatar-gradient-3 {
+  background: linear-gradient(135deg, #dcfce7, #22c55e);
+}
+
+.avatar-gradient-4 {
+  background: linear-gradient(135deg, #fed7aa, #f97316);
+}
+
+/* Button hover effects */
+.btn-primary {
+  background: linear-gradient(135deg, #8b5cf6, #ec4899);
+  color: white;
+  padding: 0.75rem 1.5rem;
+  border-radius: 0.75rem;
+  font-weight: 600;
+  transition: all 0.2s ease-in-out;
+}
+
+.btn-primary:hover {
+  background: linear-gradient(135deg, #7c3aed, #db2777);
+  transform: translateY(-1px);
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Thai font support */
+.font-thai {
+  font-family: 'Sarabun', 'Noto Sans Thai', sans-serif;
+}
+
+/* Utility classes for spacing */
+.space-y-responsive > * + * {
+  margin-top: 1rem;
+}
+
+@media (min-width: 640px) {
+  .space-y-responsive > * + * {
+    margin-top: 1.5rem;
+  }
+}
+
+/* Animation utilities */
+.fade-in {
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.scale-hover:hover {
+  transform: scale(1.05);
+}
+
+/* Point badge animations */
+.points-animate {
+  animation: pointsPulse 0.5s ease-in-out;
+}
+
+@keyframes pointsPulse {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.1);
+  }
+  100% {
+    transform: scale(1);
+  }
+}

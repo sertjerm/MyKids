@@ -1,389 +1,365 @@
 // src/components/ChildInterface.jsx
-import React, { useState, useEffect } from 'react';
-import { ArrowLeft, Star, Gift, Smile, Frown, Trophy } from 'lucide-react';
-import api from '../services/api';
-
-// Avatar Component
-const Avatar = ({ src, alt, size = 'md', className = '' }) => {
-  const sizeClasses = {
-    sm: 'w-8 h-8',
-    md: 'w-16 h-16', 
-    lg: 'w-24 h-24',
-    xl: 'w-32 h-32'
-  };
-  
-  return (
-    <div className={`${sizeClasses[size]} rounded-full overflow-hidden border-4 border-white shadow-md ${className}`}>
-      <img
-        src={src}
-        alt={alt}
-        className="w-full h-full object-cover"
-        onError={(e) => {
-          e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(alt)}&background=random&color=fff&size=150`;
-        }}
-      />
-    </div>
-  );
-};
-
-// BehaviorCard Component
-const BehaviorCard = ({ behavior, onSelect, disabled = false }) => {
-  const isGood = behavior.Type === 'Good';
-  const bgColor = isGood ? 'from-green-100 to-green-200' : 'from-red-100 to-red-200';
-  const textColor = isGood ? 'text-green-800' : 'text-red-800';
-  const icon = isGood ? <Smile className="h-8 w-8" /> : <Frown className="h-8 w-8" />;
-  
-  return (
-    <button
-      onClick={() => onSelect(behavior)}
-      disabled={disabled}
-      className={`w-full p-6 rounded-2xl shadow-md hover:shadow-lg transition-all duration-200 text-left ${
-        disabled ? 'opacity-50 cursor-not-allowed' : 'hover:scale-105 cursor-pointer'
-      } bg-gradient-to-br ${bgColor}`}
-    >
-      <div className="flex items-center space-x-4">
-        <div className={`${textColor}`}>
-          {icon}
-        </div>
-        <div className="flex-1">
-          <h3 className={`text-lg font-bold ${textColor} mb-1`}>
-            {behavior.Name}
-          </h3>
-          <div className="flex items-center space-x-2">
-            <Star className={`h-4 w-4 ${textColor}`} />
-            <span className={`font-semibold ${textColor}`}>
-              {behavior.Points > 0 ? '+' : ''}{behavior.Points} คะแนน
-            </span>
-          </div>
-          {behavior.Category && (
-            <p className={`text-sm ${textColor} opacity-75 mt-1`}>
-              {behavior.Category}
-            </p>
-          )}
-        </div>
-      </div>
-    </button>
-  );
-};
-
-// RewardCard Component
-const RewardCard = ({ reward, onSelect, canAfford = true }) => {
-  return (
-    <button
-      onClick={() => onSelect(reward)}
-      disabled={!canAfford}
-      className={`w-full p-6 rounded-2xl shadow-md hover:shadow-lg transition-all duration-200 text-left ${
-        !canAfford ? 'opacity-50 cursor-not-allowed bg-gray-100' : 'hover:scale-105 cursor-pointer bg-gradient-to-br from-yellow-100 to-orange-200'
-      }`}
-    >
-      <div className="flex items-center space-x-4">
-        <div className="text-orange-600">
-          <Gift className="h-8 w-8" />
-        </div>
-        <div className="flex-1">
-          <h3 className="text-lg font-bold text-orange-800 mb-1">
-            {reward.Name}
-          </h3>
-          <div className="flex items-center space-x-2">
-            <Star className="h-4 w-4 text-orange-600" />
-            <span className="font-semibold text-orange-800">
-              {reward.Cost} คะแนน
-            </span>
-          </div>
-          {reward.Description && (
-            <p className="text-sm text-orange-700 opacity-75 mt-1">
-              {reward.Description}
-            </p>
-          )}
-        </div>
-      </div>
-    </button>
-  );
-};
+import React, { useState, useEffect } from "react";
+import {
+  Home,
+  Star,
+  Gift,
+  Calendar,
+  Trophy,
+  Heart,
+  Sparkles,
+  RefreshCw,
+  Plus,
+  Minus,
+  Save,
+  TrendingUp,
+  TrendingDown,
+} from "lucide-react";
+import Avatar from "./Avatar";
+import BehaviorCard from "./BehaviorCard";
+import RewardCard from "./RewardCard";
+import api from "../services/api";
 
 const ChildInterface = ({ family, child, onBack }) => {
-  const [behaviors, setBehaviors] = useState([]);
-  const [rewards, setRewards] = useState([]);
-  const [currentPoints, setCurrentPoints] = useState(child.currentPoints || 0);
+  const [selectedBehavior, setSelectedBehavior] = useState(null);
+  const [selectedReward, setSelectedReward] = useState(null);
+  const [currentPoints, setCurrentPoints] = useState(0);
+  const [todayActivities, setTodayActivities] = useState([]);
+  const [tab, setTab] = useState("good");
   const [loading, setLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState('good');
-  const [notification, setNotification] = useState(null);
+  const [behaviorCounts, setBehaviorCounts] = useState({});
+  const [pendingPoints, setPendingPoints] = useState(0);
+  const [saving, setSaving] = useState(false);
+  const [familyBehaviors, setFamilyBehaviors] = useState([]);
+  const [familyRewards, setFamilyRewards] = useState([]);
 
-  // Load behaviors and rewards
+  const today = new Date().toISOString().split("T")[0];
+
   useEffect(() => {
     loadData();
-  }, []);
-
-  // Auto-hide notification
-  useEffect(() => {
-    if (notification) {
-      const timer = setTimeout(() => {
-        setNotification(null);
-      }, 3000);
-      return () => clearTimeout(timer);
-    }
-  }, [notification]);
+  }, [child.id || child.Id, family.id]);
 
   const loadData = async () => {
+    setLoading(true);
     try {
-      setLoading(true);
-      const [goodBehaviors, badBehaviors, rewardsList] = await Promise.all([
-        api.getGoodBehaviors(family.id),
-        api.getBadBehaviors(family.id),
-        api.getRewards(family.id)
+      // ใช้ API แทน mockData
+      const [behaviors, rewards, activities] = await Promise.all([
+        api.getBehaviors(family.id),
+        api.getRewards(family.id),
+        api.getDailyActivities(child.id || child.Id, today)
       ]);
-      
-      setBehaviors([...goodBehaviors, ...badBehaviors]);
-      setRewards(rewardsList);
-      setLoading(false);
+
+      setFamilyBehaviors(behaviors || []);
+      setFamilyRewards(rewards || []);
+      setTodayActivities(activities || []);
+
+      // คำนวณคะแนนปัจจุบันจากข้อมูล child หรือ API
+      const points = child.currentPoints || 0;
+      setCurrentPoints(points);
+
     } catch (error) {
-      console.error('Error loading data:', error);
+      console.error("Failed to load data:", error);
+      // Fallback หากเกิดข้อผิดพลาด
+      setCurrentPoints(child.currentPoints || 0);
+    } finally {
       setLoading(false);
-      setNotification({
-        message: 'ไม่สามารถโหลดข้อมูลได้',
-        type: 'error'
-      });
     }
   };
 
-  const handleBehaviorSelect = async (behavior) => {
+  // คำนวณคะแนนที่จะได้รับจาก behaviorCounts
+  useEffect(() => {
+    let totalPending = 0;
+    Object.entries(behaviorCounts).forEach(([behaviorId, count]) => {
+      const behavior = familyBehaviors.find((b) => b.Id === behaviorId);
+      if (behavior && count > 0) {
+        totalPending += behavior.Points * count;
+      }
+    });
+    setPendingPoints(totalPending);
+  }, [behaviorCounts, familyBehaviors]);
+
+  const handleBehaviorCountChange = (behaviorId, delta) => {
+    setBehaviorCounts((prev) => {
+      const currentCount = prev[behaviorId] || 0;
+      const newCount = Math.max(0, currentCount + delta);
+      return {
+        ...prev,
+        [behaviorId]: newCount,
+      };
+    });
+  };
+
+  const saveActivities = async () => {
+    setSaving(true);
     try {
-      setLoading(true);
+      const promises = [];
       
-      await api.recordActivity({
-        ChildId: child.id,
-        ActivityType: behavior.Type,
-        ItemId: behavior.Id,
-        EarnedPoints: behavior.Points
+      // บันทึกกิจกรรมแต่ละพฤติกรรม
+      Object.entries(behaviorCounts).forEach(([behaviorId, count]) => {
+        if (count > 0) {
+          const behavior = familyBehaviors.find((b) => b.Id === behaviorId);
+          if (behavior) {
+            for (let i = 0; i < count; i++) {
+              promises.push(
+                api.recordActivity({
+                  ChildId: child.id || child.Id,
+                  ActivityType: behavior.Type,
+                  ItemId: behaviorId,
+                  EarnedPoints: behavior.Points
+                })
+              );
+            }
+          }
+        }
       });
 
-      const newPoints = currentPoints + behavior.Points;
-      setCurrentPoints(newPoints);
+      await Promise.all(promises);
+
+      // อัพเดทคะแนนและรีเซ็ต
+      setCurrentPoints(currentPoints + pendingPoints);
+      setBehaviorCounts({});
+      setPendingPoints(0);
       
-      setNotification({
-        message: `บันทึก "${behavior.Name}" เรียบร้อย! ${behavior.Points > 0 ? '+' : ''}${behavior.Points} คะแนน`,
-        type: 'success'
-      });
-      
-      setLoading(false);
+      // รีโหลดข้อมูลกิจกรรม
+      await loadData();
+
     } catch (error) {
-      console.error('Error recording activity:', error);
-      setLoading(false);
-      setNotification({
-        message: 'ไม่สามารถบันทึกกิจกรรมได้',
-        type: 'error'
-      });
+      console.error("Failed to save activities:", error);
+      alert("เกิดข้อผิดพลาดในการบันทึก กรุณาลองใหม่อีกครั้ง");
+    } finally {
+      setSaving(false);
     }
   };
 
-  const handleRewardSelect = async (reward) => {
+  const handleRewardRedeem = async (reward) => {
     if (currentPoints < reward.Cost) {
-      setNotification({
-        message: 'คะแนนไม่เพียงพอ!',
-        type: 'error'
-      });
+      alert("คะแนนไม่เพียงพอสำหรับรางวัลนี้");
       return;
     }
 
+    setSaving(true);
     try {
-      setLoading(true);
-      
       await api.recordActivity({
-        ChildId: child.id,
+        ChildId: child.id || child.Id,
         ActivityType: 'Reward',
         ItemId: reward.Id,
         EarnedPoints: -reward.Cost
       });
 
-      const newPoints = currentPoints - reward.Cost;
-      setCurrentPoints(newPoints);
-      
-      setNotification({
-        message: `แลกรางวัล "${reward.Name}" เรียบร้อย! -${reward.Cost} คะแนน`,
-        type: 'success'
-      });
-      
-      setLoading(false);
+      setCurrentPoints(currentPoints - reward.Cost);
+      await loadData();
+      alert(`แลกรางวัล "${reward.Name}" เรียบร้อยแล้ว!`);
+
     } catch (error) {
-      console.error('Error redeeming reward:', error);
-      setLoading(false);
-      setNotification({
-        message: 'ไม่สามารถแลกรางวัลได้',
-        type: 'error'
-      });
+      console.error("Failed to redeem reward:", error);
+      alert("เกิดข้อผิดพลาดในการแลกรางวัล กรุณาลองใหม่อีกครั้ง");
+    } finally {
+      setSaving(false);
     }
   };
 
-  const goodBehaviors = behaviors.filter(b => b.Type === 'Good');
-  const badBehaviors = behaviors.filter(b => b.Type === 'Bad');
+  const goodBehaviors = familyBehaviors.filter((b) => b.Type === "Good");
+  const badBehaviors = familyBehaviors.filter((b) => b.Type === "Bad");
+  const totalPendingActivities = Object.values(behaviorCounts).reduce((sum, count) => sum + count, 0);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-pink-100 via-purple-50 to-indigo-100">
-      {/* Notification */}
-      {notification && (
-        <div className={`fixed top-4 right-4 z-50 px-6 py-3 rounded-lg shadow-md transform transition-all duration-300 ${
-          notification.type === 'success' ? 'bg-green-400 text-white' : 'bg-red-400 text-white'
-        }`}>
-          {notification.message}
-        </div>
-      )}
-
-      {/* Header */}
-      <div className="bg-white shadow-sm border-b">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between py-6">
+    <div className="min-h-screen gradient-background">
+      <div className="max-w-4xl mx-auto px-4 py-6">
+        {/* Header */}
+        <div className="bg-white/90 backdrop-blur-sm rounded-2xl card-shadow-lg p-4 sm:p-6 mb-6">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
             <button
               onClick={onBack}
-              className="flex items-center space-x-2 text-gray-600 hover:text-gray-800 transition-colors duration-200"
+              className="flex items-center gap-2 text-gray-600 hover:text-gray-800 transition-colors"
             >
-              <ArrowLeft className="h-6 w-6" />
-              <span>กลับไปหน้าหลัก</span>
+              <Home className="w-5 h-5" />
+              <span>กลับหน้าหลัก</span>
             </button>
-            
-            <div className="flex items-center space-x-4">
-              <Avatar 
-                src={child.avatarPath} 
-                alt={child.name} 
-                size="md"
-              />
-              <div className="text-center">
-                <h1 className="text-2xl font-bold text-gray-900">
-                  {child.name}
+
+            <div className="flex items-center gap-4 text-center">
+              <Avatar emoji={child.avatarPath || child.AvatarPath} size="lg" />
+              <div>
+                <h1 className="text-xl sm:text-2xl font-bold text-gray-800">
+                  {child.name || child.Name}
                 </h1>
-                <div className="flex items-center justify-center space-x-2 mt-1">
-                  <Star className="h-5 w-5 text-yellow-500" />
-                  <span className="text-lg font-bold text-gray-800">
+                <div className="flex items-center justify-center gap-2 mt-2">
+                  <Star className="w-5 h-5 text-yellow-500" />
+                  <span className="text-lg font-bold text-purple-600">
                     {currentPoints} คะแนน
                   </span>
+                  {pendingPoints !== 0 && (
+                    <span className={`text-sm ${pendingPoints > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                      ({pendingPoints > 0 ? '+' : ''}{pendingPoints})
+                    </span>
+                  )}
                 </div>
               </div>
             </div>
-            
-            <div className="w-20"></div> {/* Spacer */}
+
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => window.location.reload()}
+                className="p-2 rounded-lg bg-gray-100 hover:bg-gray-200 transition-colors"
+              >
+                <RefreshCw className="w-4 h-4" />
+              </button>
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* Main Content */}
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Tab Navigation */}
-        <div className="flex space-x-1 bg-gray-200 rounded-2xl p-1 mb-8">
-          <button
-            onClick={() => setActiveTab('good')}
-            className={`flex-1 py-3 px-6 rounded-xl transition-all duration-200 flex items-center justify-center space-x-2 ${
-              activeTab === 'good' 
-                ? 'bg-green-400 text-white shadow-md' 
-                : 'text-gray-600 hover:text-gray-800'
-            }`}
-          >
-            <Smile className="h-5 w-5" />
-            <span className="font-medium">พฤติกรรมดี</span>
-          </button>
-          <button
-            onClick={() => setActiveTab('bad')}
-            className={`flex-1 py-3 px-6 rounded-xl transition-all duration-200 flex items-center justify-center space-x-2 ${
-              activeTab === 'bad' 
-                ? 'bg-red-400 text-white shadow-md' 
-                : 'text-gray-600 hover:text-gray-800'
-            }`}
-          >
-            <Frown className="h-5 w-5" />
-            <span className="font-medium">พฤติกรรมไม่ดี</span>
-          </button>
-          <button
-            onClick={() => setActiveTab('rewards')}
-            className={`flex-1 py-3 px-6 rounded-xl transition-all duration-200 flex items-center justify-center space-x-2 ${
-              activeTab === 'rewards' 
-                ? 'bg-yellow-400 text-white shadow-md' 
-                : 'text-gray-600 hover:text-gray-800'
-            }`}
-          >
-            <Gift className="h-5 w-5" />
-            <span className="font-medium">รางวัล</span>
-          </button>
+        {/* Tabs */}
+        <div className="bg-white/90 backdrop-blur-sm rounded-2xl card-shadow mb-6 overflow-hidden">
+          <div className="flex">
+            {[
+              { id: "good", label: "พฤติกรรมดี", icon: Heart, color: "text-green-600" },
+              { id: "bad", label: "พฤติกรรมไม่ดี", icon: TrendingDown, color: "text-red-600" },
+              { id: "rewards", label: "รางวัล", icon: Gift, color: "text-purple-600" },
+            ].map((tabItem) => {
+              const Icon = tabItem.icon;
+              return (
+                <button
+                  key={tabItem.id}
+                  onClick={() => setTab(tabItem.id)}
+                  className={`flex-1 flex items-center justify-center gap-2 py-4 px-6 font-medium transition-colors ${
+                    tab === tabItem.id
+                      ? `${tabItem.color} border-b-2 border-current bg-gray-50`
+                      : "text-gray-600 hover:text-gray-800"
+                  }`}
+                >
+                  <Icon className="w-4 h-4" />
+                  <span className="text-sm sm:text-base">{tabItem.label}</span>
+                </button>
+              );
+            })}
+          </div>
         </div>
 
         {/* Content */}
-        {loading && (
-          <div className="text-center py-12">
-            <div className="w-12 h-12 border-4 border-pink-200 border-t-pink-500 rounded-full animate-spin mx-auto mb-4"></div>
-            <p className="text-gray-600">กำลังโหลด...</p>
-          </div>
-        )}
-
-        {!loading && (
-          <div className="space-y-4">
-            {/* Good Behaviors */}
-            {activeTab === 'good' && (
-              <div>
-                <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center space-x-2">
-                  <Smile className="h-6 w-6 text-green-500" />
-                  <span>พฤติกรรมดี</span>
-                </h2>
-                {goodBehaviors.length > 0 ? (
-                  <div className="grid gap-4">
+        <div className="bg-white/90 backdrop-blur-sm rounded-2xl card-shadow p-4 sm:p-6">
+          {loading ? (
+            <div className="flex justify-center py-12">
+              <div className="w-8 h-8 border-4 border-purple-200 border-t-purple-600 rounded-full animate-spin"></div>
+            </div>
+          ) : (
+            <>
+              {/* Good Behaviors */}
+              {tab === "good" && (
+                <div>
+                  <h2 className="text-lg font-semibold text-green-600 mb-4 flex items-center gap-2">
+                    <Heart className="w-5 h-5" />
+                    พฤติกรรมดี ({goodBehaviors.length} รายการ)
+                  </h2>
+                  <div className="grid gap-4 sm:grid-cols-2">
                     {goodBehaviors.map((behavior) => (
-                      <BehaviorCard
-                        key={behavior.Id}
-                        behavior={behavior}
-                        onSelect={handleBehaviorSelect}
-                        disabled={loading}
-                      />
+                      <div key={behavior.Id} className="border border-gray-200 rounded-xl p-4">
+                        <BehaviorCard behavior={behavior} onSelect={() => {}} showPoints={true} />
+                        <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-100">
+                          <span className="text-sm text-gray-600">จำนวนครั้ง:</span>
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => handleBehaviorCountChange(behavior.Id, -1)}
+                              disabled={!behaviorCounts[behavior.Id]}
+                              className="p-1 rounded-lg bg-gray-100 hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              <Minus className="w-4 h-4" />
+                            </button>
+                            <span className="w-8 text-center font-bold">
+                              {behaviorCounts[behavior.Id] || 0}
+                            </span>
+                            <button
+                              onClick={() => handleBehaviorCountChange(behavior.Id, 1)}
+                              className="p-1 rounded-lg bg-green-100 hover:bg-green-200"
+                            >
+                              <Plus className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
                     ))}
                   </div>
-                ) : (
-                  <p className="text-gray-500 text-center py-8">ยังไม่มีพฤติกรรมดี</p>
-                )}
-              </div>
-            )}
+                </div>
+              )}
 
-            {/* Bad Behaviors */}
-            {activeTab === 'bad' && (
-              <div>
-                <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center space-x-2">
-                  <Frown className="h-6 w-6 text-red-500" />
-                  <span>พฤติกรรมไม่ดี</span>
-                </h2>
-                {badBehaviors.length > 0 ? (
-                  <div className="grid gap-4">
+              {/* Bad Behaviors */}
+              {tab === "bad" && (
+                <div>
+                  <h2 className="text-lg font-semibold text-red-600 mb-4 flex items-center gap-2">
+                    <TrendingDown className="w-5 h-5" />
+                    พฤติกรรมไม่ดี ({badBehaviors.length} รายการ)
+                  </h2>
+                  <div className="grid gap-4 sm:grid-cols-2">
                     {badBehaviors.map((behavior) => (
-                      <BehaviorCard
-                        key={behavior.Id}
-                        behavior={behavior}
-                        onSelect={handleBehaviorSelect}
-                        disabled={loading}
-                      />
+                      <div key={behavior.Id} className="border border-gray-200 rounded-xl p-4">
+                        <BehaviorCard behavior={behavior} onSelect={() => {}} showPoints={true} />
+                        <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-100">
+                          <span className="text-sm text-gray-600">จำนวนครั้ง:</span>
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => handleBehaviorCountChange(behavior.Id, -1)}
+                              disabled={!behaviorCounts[behavior.Id]}
+                              className="p-1 rounded-lg bg-gray-100 hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              <Minus className="w-4 h-4" />
+                            </button>
+                            <span className="w-8 text-center font-bold">
+                              {behaviorCounts[behavior.Id] || 0}
+                            </span>
+                            <button
+                              onClick={() => handleBehaviorCountChange(behavior.Id, 1)}
+                              className="p-1 rounded-lg bg-red-100 hover:bg-red-200"
+                            >
+                              <Plus className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
                     ))}
                   </div>
-                ) : (
-                  <p className="text-gray-500 text-center py-8">ยังไม่มีพฤติกรรมไม่ดี</p>
-                )}
-              </div>
-            )}
+                </div>
+              )}
 
-            {/* Rewards */}
-            {activeTab === 'rewards' && (
-              <div>
-                <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center space-x-2">
-                  <Trophy className="h-6 w-6 text-yellow-500" />
-                  <span>รางวัล</span>
-                </h2>
-                {rewards.length > 0 ? (
-                  <div className="grid gap-4">
-                    {rewards.map((reward) => (
-                      <RewardCard
-                        key={reward.Id}
-                        reward={reward}
-                        onSelect={handleRewardSelect}
-                        canAfford={currentPoints >= reward.Cost && !loading}
-                      />
+              {/* Rewards */}
+              {tab === "rewards" && (
+                <div>
+                  <h2 className="text-lg font-semibold text-purple-600 mb-4 flex items-center gap-2">
+                    <Trophy className="w-5 h-5" />
+                    รางวัล ({familyRewards.length} รายการ)
+                  </h2>
+                  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                    {familyRewards.map((reward) => (
+                      <div key={reward.Id} className="border border-gray-200 rounded-xl p-4">
+                        <RewardCard reward={reward} onSelect={() => {}} />
+                        <button
+                          onClick={() => handleRewardRedeem(reward)}
+                          disabled={currentPoints < reward.Cost || saving}
+                          className={`w-full mt-3 py-2 px-4 rounded-lg font-medium transition-colors ${
+                            currentPoints >= reward.Cost && !saving
+                              ? 'bg-purple-500 hover:bg-purple-600 text-white'
+                              : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                          }`}
+                        >
+                          {saving ? 'กำลังแลก...' : currentPoints >= reward.Cost ? 'แลกรางวัล' : 'คะแนนไม่พอ'}
+                        </button>
+                      </div>
                     ))}
                   </div>
-                ) : (
-                  <p className="text-gray-500 text-center py-8">ยังไม่มีรางวัล</p>
-                )}
-              </div>
-            )}
+                </div>
+              )}
+            </>
+          )}
+        </div>
+
+        {/* Save Button */}
+        {totalPendingActivities > 0 && (
+          <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-50">
+            <button
+              onClick={saveActivities}
+              disabled={saving}
+              className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white px-6 py-3 rounded-full shadow-lg flex items-center gap-2 font-medium disabled:opacity-50"
+            >
+              <Save className="w-5 h-5" />
+              {saving ? 'กำลังบันทึก...' : `บันทึกกิจกรรม (${totalPendingActivities})`}
+            </button>
           </div>
         )}
       </div>
