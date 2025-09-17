@@ -18,6 +18,7 @@ import {
 import Avatar from "./Avatar";
 import BehaviorCard from "./BehaviorCard";
 import RewardCard from "./RewardCard";
+import BehaviorItem from "./BehaviorItem"; // เพิ่มบรรทัดนี้
 import api from "../services/api";
 
 const ChildInterface = ({ family, child, onBack }) => {
@@ -42,24 +43,26 @@ const ChildInterface = ({ family, child, onBack }) => {
   const loadData = async () => {
     setLoading(true);
     try {
-      // ใช้ API แทน mockData
       const [behaviors, rewards, activities] = await Promise.all([
         api.getBehaviors(family.id),
         api.getRewards(family.id),
-        api.getDailyActivities(child.id || child.Id, today)
+        api.getDailyActivities(child.id || child.Id, today),
       ]);
 
       setFamilyBehaviors(behaviors || []);
       setFamilyRewards(rewards || []);
       setTodayActivities(activities || []);
 
-      // คำนวณคะแนนปัจจุบันจากข้อมูล child หรือ API
-      const points = child.currentPoints || 0;
-      setCurrentPoints(points);
-
+      // ⭐ เพิ่มการดึงคะแนนรวมล่าสุด
+      try {
+        const pointsData = await api.getChildTotalPoints(child.id || child.Id);
+        setCurrentPoints(pointsData.totalPoints);
+      } catch (error) {
+        console.error("Failed to get total points:", error);
+        setCurrentPoints(child.currentPoints || 0);
+      }
     } catch (error) {
       console.error("Failed to load data:", error);
-      // Fallback หากเกิดข้อผิดพลาด
       setCurrentPoints(child.currentPoints || 0);
     } finally {
       setLoading(false);
@@ -89,11 +92,21 @@ const ChildInterface = ({ family, child, onBack }) => {
     });
   };
 
+  const handleBehaviorToggle = (behaviorId) => {
+    setBehaviorCounts((prev) => {
+      const currentCount = prev[behaviorId] || 0;
+      return {
+        ...prev,
+        [behaviorId]: currentCount === 0 ? 1 : 0,
+      };
+    });
+  };
+
   const saveActivities = async () => {
     setSaving(true);
     try {
       const promises = [];
-      
+
       // บันทึกกิจกรรมแต่ละพฤติกรรม
       Object.entries(behaviorCounts).forEach(([behaviorId, count]) => {
         if (count > 0) {
@@ -105,7 +118,7 @@ const ChildInterface = ({ family, child, onBack }) => {
                   ChildId: child.id || child.Id,
                   ActivityType: behavior.Type,
                   ItemId: behaviorId,
-                  EarnedPoints: behavior.Points
+                  EarnedPoints: behavior.Points,
                 })
               );
             }
@@ -115,14 +128,16 @@ const ChildInterface = ({ family, child, onBack }) => {
 
       await Promise.all(promises);
 
-      // อัพเดทคะแนนและรีเซ็ต
-      setCurrentPoints(currentPoints + pendingPoints);
+      // ⭐ รีเซ็ต counts ก่อน
       setBehaviorCounts({});
       setPendingPoints(0);
-      
+
+      // ⭐ ดึงคะแนนล่าสุดจาก API แทนการบวกเอง
+      const pointsData = await api.getChildTotalPoints(child.id || child.Id);
+      setCurrentPoints(pointsData.totalPoints);
+
       // รีโหลดข้อมูลกิจกรรม
       await loadData();
-
     } catch (error) {
       console.error("Failed to save activities:", error);
       alert("เกิดข้อผิดพลาดในการบันทึก กรุณาลองใหม่อีกครั้ง");
@@ -141,15 +156,14 @@ const ChildInterface = ({ family, child, onBack }) => {
     try {
       await api.recordActivity({
         ChildId: child.id || child.Id,
-        ActivityType: 'Reward',
+        ActivityType: "Reward",
         ItemId: reward.Id,
-        EarnedPoints: -reward.Cost
+        EarnedPoints: -reward.Cost,
       });
 
       setCurrentPoints(currentPoints - reward.Cost);
       await loadData();
       alert(`แลกรางวัล "${reward.Name}" เรียบร้อยแล้ว!`);
-
     } catch (error) {
       console.error("Failed to redeem reward:", error);
       alert("เกิดข้อผิดพลาดในการแลกรางวัล กรุณาลองใหม่อีกครั้ง");
@@ -160,7 +174,10 @@ const ChildInterface = ({ family, child, onBack }) => {
 
   const goodBehaviors = familyBehaviors.filter((b) => b.Type === "Good");
   const badBehaviors = familyBehaviors.filter((b) => b.Type === "Bad");
-  const totalPendingActivities = Object.values(behaviorCounts).reduce((sum, count) => sum + count, 0);
+  const totalPendingActivities = Object.values(behaviorCounts).reduce(
+    (sum, count) => sum + count,
+    0
+  );
 
   return (
     <div className="min-h-screen gradient-background">
@@ -188,8 +205,13 @@ const ChildInterface = ({ family, child, onBack }) => {
                     {currentPoints} คะแนน
                   </span>
                   {pendingPoints !== 0 && (
-                    <span className={`text-sm ${pendingPoints > 0 ? 'text-green-600' : 'text-red-600'}`}>
-                      ({pendingPoints > 0 ? '+' : ''}{pendingPoints})
+                    <span
+                      className={`text-sm ${
+                        pendingPoints > 0 ? "text-green-600" : "text-red-600"
+                      }`}
+                    >
+                      ({pendingPoints > 0 ? "+" : ""}
+                      {pendingPoints})
                     </span>
                   )}
                 </div>
@@ -211,9 +233,24 @@ const ChildInterface = ({ family, child, onBack }) => {
         <div className="bg-white/90 backdrop-blur-sm rounded-2xl card-shadow mb-6 overflow-hidden">
           <div className="flex">
             {[
-              { id: "good", label: "พฤติกรรมดี", icon: Heart, color: "text-green-600" },
-              { id: "bad", label: "พฤติกรรมไม่ดี", icon: TrendingDown, color: "text-red-600" },
-              { id: "rewards", label: "รางวัล", icon: Gift, color: "text-purple-600" },
+              {
+                id: "good",
+                label: "พฤติกรรมดี",
+                icon: Heart,
+                color: "text-green-600",
+              },
+              {
+                id: "bad",
+                label: "พฤติกรรมไม่ดี",
+                icon: TrendingDown,
+                color: "text-red-600",
+              },
+              {
+                id: "rewards",
+                label: "รางวัล",
+                icon: Gift,
+                color: "text-purple-600",
+              },
             ].map((tabItem) => {
               const Icon = tabItem.icon;
               return (
@@ -249,32 +286,16 @@ const ChildInterface = ({ family, child, onBack }) => {
                     <Heart className="w-5 h-5" />
                     พฤติกรรมดี ({goodBehaviors.length} รายการ)
                   </h2>
-                  <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-4">
                     {goodBehaviors.map((behavior) => (
-                      <div key={behavior.Id} className="border border-gray-200 rounded-xl p-4">
-                        <BehaviorCard behavior={behavior} onSelect={() => {}} showPoints={true} />
-                        <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-100">
-                          <span className="text-sm text-gray-600">จำนวนครั้ง:</span>
-                          <div className="flex items-center gap-2">
-                            <button
-                              onClick={() => handleBehaviorCountChange(behavior.Id, -1)}
-                              disabled={!behaviorCounts[behavior.Id]}
-                              className="p-1 rounded-lg bg-gray-100 hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                              <Minus className="w-4 h-4" />
-                            </button>
-                            <span className="w-8 text-center font-bold">
-                              {behaviorCounts[behavior.Id] || 0}
-                            </span>
-                            <button
-                              onClick={() => handleBehaviorCountChange(behavior.Id, 1)}
-                              className="p-1 rounded-lg bg-green-100 hover:bg-green-200"
-                            >
-                              <Plus className="w-4 h-4" />
-                            </button>
-                          </div>
-                        </div>
-                      </div>
+                      <BehaviorItem
+                        key={behavior.Id}
+                        behavior={behavior}
+                        count={behaviorCounts[behavior.Id] || 0}
+                        onCountChange={handleBehaviorCountChange}
+                        onToggle={handleBehaviorToggle}
+                        disabled={saving}
+                      />
                     ))}
                   </div>
                 </div>
@@ -287,32 +308,16 @@ const ChildInterface = ({ family, child, onBack }) => {
                     <TrendingDown className="w-5 h-5" />
                     พฤติกรรมไม่ดี ({badBehaviors.length} รายการ)
                   </h2>
-                  <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-4">
                     {badBehaviors.map((behavior) => (
-                      <div key={behavior.Id} className="border border-gray-200 rounded-xl p-4">
-                        <BehaviorCard behavior={behavior} onSelect={() => {}} showPoints={true} />
-                        <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-100">
-                          <span className="text-sm text-gray-600">จำนวนครั้ง:</span>
-                          <div className="flex items-center gap-2">
-                            <button
-                              onClick={() => handleBehaviorCountChange(behavior.Id, -1)}
-                              disabled={!behaviorCounts[behavior.Id]}
-                              className="p-1 rounded-lg bg-gray-100 hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                              <Minus className="w-4 h-4" />
-                            </button>
-                            <span className="w-8 text-center font-bold">
-                              {behaviorCounts[behavior.Id] || 0}
-                            </span>
-                            <button
-                              onClick={() => handleBehaviorCountChange(behavior.Id, 1)}
-                              className="p-1 rounded-lg bg-red-100 hover:bg-red-200"
-                            >
-                              <Plus className="w-4 h-4" />
-                            </button>
-                          </div>
-                        </div>
-                      </div>
+                      <BehaviorItem
+                        key={behavior.Id}
+                        behavior={behavior}
+                        count={behaviorCounts[behavior.Id] || 0}
+                        onCountChange={handleBehaviorCountChange}
+                        onToggle={handleBehaviorToggle}
+                        disabled={saving}
+                      />
                     ))}
                   </div>
                 </div>
@@ -327,18 +332,25 @@ const ChildInterface = ({ family, child, onBack }) => {
                   </h2>
                   <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                     {familyRewards.map((reward) => (
-                      <div key={reward.Id} className="border border-gray-200 rounded-xl p-4">
+                      <div
+                        key={reward.Id}
+                        className="border border-gray-200 rounded-xl p-4"
+                      >
                         <RewardCard reward={reward} onSelect={() => {}} />
                         <button
                           onClick={() => handleRewardRedeem(reward)}
                           disabled={currentPoints < reward.Cost || saving}
                           className={`w-full mt-3 py-2 px-4 rounded-lg font-medium transition-colors ${
                             currentPoints >= reward.Cost && !saving
-                              ? 'bg-purple-500 hover:bg-purple-600 text-white'
-                              : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                              ? "bg-purple-500 hover:bg-purple-600 text-white"
+                              : "bg-gray-100 text-gray-400 cursor-not-allowed"
                           }`}
                         >
-                          {saving ? 'กำลังแลก...' : currentPoints >= reward.Cost ? 'แลกรางวัล' : 'คะแนนไม่พอ'}
+                          {saving
+                            ? "กำลังแลก..."
+                            : currentPoints >= reward.Cost
+                            ? "แลกรางวัล"
+                            : "คะแนนไม่พอ"}
                         </button>
                       </div>
                     ))}
@@ -358,7 +370,9 @@ const ChildInterface = ({ family, child, onBack }) => {
               className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white px-6 py-3 rounded-full shadow-lg flex items-center gap-2 font-medium disabled:opacity-50"
             >
               <Save className="w-5 h-5" />
-              {saving ? 'กำลังบันทึก...' : `บันทึกกิจกรรม (${totalPendingActivities})`}
+              {saving
+                ? "กำลังบันทึก..."
+                : `บันทึกกิจกรรม (${totalPendingActivities})`}
             </button>
           </div>
         )}

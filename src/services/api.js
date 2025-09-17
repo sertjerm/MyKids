@@ -333,6 +333,19 @@ export const getApiConfig = () => ({
   ...API_CONFIG,
 });
 
+// ============================================
+// CHILD POINTS APIs
+// ============================================
+
+export const getChildTotalPoints = async (childId) => {
+  try {
+    // ใช้ makeRequest เพื่อความสอดคล้องกับโค้ดเดิม
+    return await makeRequest(`?child-points=${childId}`);
+  } catch (error) {
+    handleApiError(error, "getChildTotalPoints");
+  }
+};
+
 // Export all functions
 export default {
   getFamilies,
@@ -355,4 +368,5 @@ export default {
   getDashboardData,
   setApiBaseUrl,
   getApiConfig,
+  getChildTotalPoints,
 };
