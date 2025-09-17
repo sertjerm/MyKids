@@ -19,6 +19,7 @@ import Avatar from "./Avatar";
 import BehaviorCard from "./BehaviorCard";
 import RewardCard from "./RewardCard";
 import BehaviorItem from "./BehaviorItem"; // เพิ่มบรรทัดนี้
+import RewardItem from "./RewardItem"; // ✅ เพิ่ม import RewardItem
 import api from "../services/api";
 
 const ChildInterface = ({ family, child, onBack }) => {
@@ -330,29 +331,15 @@ const ChildInterface = ({ family, child, onBack }) => {
                     <Trophy className="w-5 h-5" />
                     รางวัล ({familyRewards.length} รายการ)
                   </h2>
-                  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                  <div className="space-y-4">
                     {familyRewards.map((reward) => (
-                      <div
+                      <RewardItem
                         key={reward.Id}
-                        className="border border-gray-200 rounded-xl p-4"
-                      >
-                        <RewardCard reward={reward} onSelect={() => {}} />
-                        <button
-                          onClick={() => handleRewardRedeem(reward)}
-                          disabled={currentPoints < reward.Cost || saving}
-                          className={`w-full mt-3 py-2 px-4 rounded-lg font-medium transition-colors ${
-                            currentPoints >= reward.Cost && !saving
-                              ? "bg-purple-500 hover:bg-purple-600 text-white"
-                              : "bg-gray-100 text-gray-400 cursor-not-allowed"
-                          }`}
-                        >
-                          {saving
-                            ? "กำลังแลก..."
-                            : currentPoints >= reward.Cost
-                            ? "แลกรางวัล"
-                            : "คะแนนไม่พอ"}
-                        </button>
-                      </div>
+                        reward={reward}
+                        currentPoints={currentPoints}
+                        onRedeem={handleRewardRedeem}
+                        disabled={saving}
+                      />
                     ))}
                   </div>
                 </div>
