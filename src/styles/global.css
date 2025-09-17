@@ -33,6 +33,12 @@
     @apply leading-tight;
   }
 
+  .card-bg-glass {
+  background-color: rgba(255, 255, 255, 0.5);
+  /* Optional: backdrop blur for glass effect */
+  backdrop-filter: blur(6px);
+}
+
   /* Links */
   a {
     @apply transition-colors;

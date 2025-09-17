@@ -184,7 +184,7 @@ const ChildInterface = ({ family, child, onBack }) => {
     <div className="min-h-screen gradient-background">
       <div className="max-w-4xl mx-auto px-4 py-6">
         {/* Header */}
-        <div className="bg-white/90 backdrop-blur-sm rounded-2xl card-shadow-lg p-4 sm:p-6 mb-6">
+        <div className="card-bg-glass backdrop-blur-sm rounded-2xl card-shadow-lg p-4 sm:p-6 mb-6">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
             <button
               onClick={onBack}
@@ -231,7 +231,7 @@ const ChildInterface = ({ family, child, onBack }) => {
         </div>
 
         {/* Tabs */}
-        <div className="bg-white/90 backdrop-blur-sm rounded-2xl card-shadow mb-6 overflow-hidden">
+        <div className="card-bg-glass backdrop-blur-sm rounded-2xl card-shadow mb-6 overflow-hidden">
           <div className="flex">
             {[
               {
@@ -273,7 +273,7 @@ const ChildInterface = ({ family, child, onBack }) => {
         </div>
 
         {/* Content */}
-        <div className="bg-white/90 backdrop-blur-sm rounded-2xl card-shadow p-4 sm:p-6">
+        <div className="card-bg-glass backdrop-blur-sm rounded-2xl card-shadow p-4 sm:p-6">
           {loading ? (
             <div className="flex justify-center py-12">
               <div className="w-8 h-8 border-4 border-purple-200 border-t-purple-600 rounded-full animate-spin"></div>

@@ -54,7 +54,7 @@ const BehaviorItem = ({
   const colors = colorScheme[isGoodBehavior ? "good" : "bad"];
 
   return (
-    <div className="bg-white rounded-xl p-4 shadow-sm border-2 border-gray-100">
+    <div className="card-bg-glass rounded-xl p-4 shadow-sm border-2 border-gray-100">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3 flex-1">
           {/* Color indicator */}

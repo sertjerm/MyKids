@@ -1,8 +1,8 @@
 // src/components/LoginPage.jsx
-import React, { useState } from 'react';
-import { Users } from 'lucide-react';
-import { mockFamilies, getChildrenByFamily } from '../data/mockData';
-import Avatar from './Avatar';
+import React, { useState } from "react";
+import { Users } from "lucide-react";
+import { mockFamilies, getChildrenByFamily } from "../data/mockData";
+import Avatar from "./Avatar";
 
 const LoginPage = ({ onLogin }) => {
   const [loading, setLoading] = useState(false);
@@ -11,11 +11,11 @@ const LoginPage = ({ onLogin }) => {
     setLoading(true);
     try {
       // Simulate API call delay
-      await new Promise(resolve => setTimeout(resolve, 500));
+      await new Promise((resolve) => setTimeout(resolve, 500));
       onLogin(family);
     } catch (error) {
-      console.error('Login failed:', error);
-      alert('เข้าสู่ระบบไม่สำเร็จ: ' + error.message);
+      console.error("Login failed:", error);
+      alert("เข้าสู่ระบบไม่สำเร็จ: " + error.message);
     } finally {
       setLoading(false);
     }
@@ -23,7 +23,7 @@ const LoginPage = ({ onLogin }) => {
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-md">
+      <div className="card-bg-glass rounded-2xl shadow-xl p-8 w-full max-w-md">
         <div className="text-center mb-8">
           <div className="w-16 h-16 bg-gradient-to-br from-pink-400 to-purple-500 rounded-full flex items-center justify-center mx-auto mb-4">
             <Users className="w-8 h-8 text-white" />
@@ -31,9 +31,9 @@ const LoginPage = ({ onLogin }) => {
           <h1 className="text-2xl font-bold text-gray-800">MyKids Tracker</h1>
           <p className="text-gray-600">เลือกครอบครัวของคุณ</p>
         </div>
-        
+
         <div className="space-y-4">
-          {mockFamilies.map(family => (
+          {mockFamilies.map((family) => (
             <button
               key={family.Id}
               onClick={() => handleLogin(family)}

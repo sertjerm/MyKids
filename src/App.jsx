@@ -1,18 +1,10 @@
 // src/App.jsx
 import React, { useState } from "react";
-import { Users } from "lucide-react";
-
-// Import API service
 import api from "./services/api";
-
-// Import components ที่แยกไว้
-import Avatar from "./components/Avatar";
-import BehaviorCard from "./components/BehaviorCard";
-import RewardCard from "./components/RewardCard";
-import PointsBadge from "./components/PointsBadge";
 import AdminDashboard from "./components/AdminDashboard";
 import ChildInterface from "./components/ChildInterface";
 import FamilyLogin from "./pages/FamilyLogin";
+import "./styles/global.css";
 
 // Main App Component
 function App() {
@@ -22,7 +14,7 @@ function App() {
 
   // handleLogin รับ family object จาก FamilyLogin
   const handleLogin = (family) => {
-    console.log('App received family:', family);
+    console.log("App received family:", family);
     setCurrentFamily(family);
     setCurrentView("admin");
   };
@@ -67,4 +59,3 @@ function App() {
 }
 
 export default App;
-

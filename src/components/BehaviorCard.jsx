@@ -1,11 +1,9 @@
 // src/components/BehaviorCard.jsx
 import React from "react";
-import { Plus, Minus, Check } from "lucide-react";
+import { Repeat, Lock } from "lucide-react";
 
 const BehaviorCard = ({
   behavior,
-  onRecord,
-  onCountChange,
   currentCount = 0,
   todayCount = 0,
   disabled = false,
@@ -13,27 +11,12 @@ const BehaviorCard = ({
   const isGood = behavior.Type === "Good";
   const isRepeatable = behavior.IsRepeatable;
   const hasMaxLimit = behavior.MaxPerDay && behavior.MaxPerDay > 0;
-  const isAtLimit = hasMaxLimit && todayCount >= behavior.MaxPerDay;
-  const canPerform = !disabled && (!hasMaxLimit || !isAtLimit);
-  const isDone = !isRepeatable && todayCount > 0;
-
-  const handleAction = (action) => {
-    if (isRepeatable) {
-      onCountChange?.(behavior.Id, action === "increase" ? 1 : -1);
-    } else {
-      onRecord?.(behavior);
-    }
-  };
 
   return (
     <div
       className={`
-        flex items-center gap-3 p-4 bg-white rounded-xl border transition-all duration-200
-        ${
-          canPerform && !isDone
-            ? "border-gray-200 hover:border-gray-300 hover:shadow-sm"
-            : "border-gray-100 opacity-70"
-        }
+        flex items-center gap-3 p-4 card-bg-glass rounded-xl border transition-all duration-200
+        border-gray-200
       `}
     >
       {/* Color Dot */}
@@ -65,78 +48,18 @@ const BehaviorCard = ({
         {behavior.Points}
       </div>
 
-      {/* Today Status */}
-      <div className="text-sm text-gray-500 flex-shrink-0 min-w-[60px] text-right">
-        {isRepeatable
-          ? hasMaxLimit
-            ? `${todayCount}/${behavior.MaxPerDay}`
-            : `${todayCount}×`
-          : isDone
-          ? "✓"
-          : "○"}
-      </div>
-
-      {/* Controls */}
-      <div className="flex-shrink-0">
+      {/* Repeatable/Not Repeatable Indicator */}
+      <div className="flex items-center gap-1 text-gray-500 text-sm font-medium">
         {isRepeatable ? (
-          <div className="flex items-center gap-1">
-            <button
-              onClick={() => handleAction("decrease")}
-              disabled={currentCount <= 0}
-              className={`
-                w-7 h-7 rounded-full flex items-center justify-center transition-colors
-                ${
-                  currentCount > 0
-                    ? "bg-gray-100 hover:bg-gray-200 text-gray-600"
-                    : "bg-gray-50 text-gray-300 cursor-not-allowed"
-                }
-              `}
-            >
-              <Minus className="w-3 h-3" />
-            </button>
-            <span className="w-6 text-center text-sm font-medium text-gray-700">
-              {currentCount}
-            </span>
-            <button
-              onClick={() => handleAction("increase")}
-              disabled={!canPerform}
-              className={`
-                w-7 h-7 rounded-full flex items-center justify-center transition-colors
-                ${
-                  canPerform
-                    ? isGood
-                      ? "bg-green-100 hover:bg-green-200 text-green-600"
-                      : "bg-red-100 hover:bg-red-200 text-red-600"
-                    : "bg-gray-50 text-gray-300 cursor-not-allowed"
-                }
-              `}
-            >
-              <Plus className="w-3 h-3" />
-            </button>
-          </div>
+          <>
+            <Repeat className="w-4 h-4" />
+            <span>ทำซ้ำได้</span>
+          </>
         ) : (
-          <button
-            onClick={() => handleAction("record")}
-            disabled={!canPerform || isDone}
-            className={`
-              w-8 h-8 rounded-full flex items-center justify-center transition-colors
-              ${
-                isDone
-                  ? "bg-gray-100 text-green-600 cursor-default"
-                  : canPerform
-                  ? isGood
-                    ? "bg-green-100 hover:bg-green-200 text-green-600"
-                    : "bg-red-100 hover:bg-red-200 text-red-600"
-                  : "bg-gray-50 text-gray-300 cursor-not-allowed"
-              }
-            `}
-          >
-            {isDone ? (
-              <Check className="w-4 h-4" />
-            ) : (
-              <Plus className="w-4 h-4" />
-            )}
-          </button>
+          <>
+            <Lock className="w-4 h-4" />
+            <span>ทำได้ครั้งเดียว/วัน</span>
+          </>
         )}
       </div>
     </div>

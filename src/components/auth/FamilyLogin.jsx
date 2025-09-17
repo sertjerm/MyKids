@@ -1,14 +1,14 @@
 // src/components/auth/FamilyLogin.jsx
 // Family Login Component using updated API
-import React, { useState, useEffect } from 'react';
-import { getFamilies, loginFamily } from '../../services/api.js';
+import React, { useState, useEffect } from "react";
+import { getFamilies, loginFamily } from "../../services/api.js";
 
 const FamilyLogin = ({ onLogin }) => {
   const [families, setFamilies] = useState([]);
-  const [selectedFamily, setSelectedFamily] = useState('');
-  const [password, setPassword] = useState('');
+  const [selectedFamily, setSelectedFamily] = useState("");
+  const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
 
   useEffect(() => {
     loadFamilies();
@@ -19,22 +19,22 @@ const FamilyLogin = ({ onLogin }) => {
       const data = await getFamilies();
       setFamilies(data);
     } catch (err) {
-      setError('Failed to load families');
+      setError("Failed to load families");
     }
   };
 
   const handleLogin = async (e) => {
     e.preventDefault();
     if (!selectedFamily || !password) {
-      setError('Please select family and enter password');
+      setError("Please select family and enter password");
       return;
     }
 
     setLoading(true);
-    setError('');
+    setError("");
 
     try {
-      const family = families.find(f => f.Id === selectedFamily);
+      const family = families.find((f) => f.Id === selectedFamily);
       const result = await loginFamily(family.Email, password);
       onLogin(result);
     } catch (err) {
@@ -46,7 +46,7 @@ const FamilyLogin = ({ onLogin }) => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-100 via-pink-50 to-blue-100 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-md">
+      <div className="card-bg-glass rounded-2xl shadow-xl p-8 w-full max-w-md">
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-gray-800 mb-2">🌈 My Kids</h1>
           <p className="text-gray-600">เข้าสู่ระบบครอบครัว</p>
@@ -63,7 +63,7 @@ const FamilyLogin = ({ onLogin }) => {
               className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
             >
               <option value="">-- เลือกครอบครัว --</option>
-              {families.map(family => (
+              {families.map((family) => (
                 <option key={family.Id} value={family.Id}>
                   {family.AvatarPath} {family.Name} ({family.childrenCount} คน)
                 </option>
@@ -95,7 +95,7 @@ const FamilyLogin = ({ onLogin }) => {
             disabled={loading}
             className="w-full bg-gradient-to-r from-purple-500 to-pink-500 text-white py-3 rounded-lg font-medium hover:from-purple-600 hover:to-pink-600 transition-colors disabled:opacity-50"
           >
-            {loading ? 'กำลังเข้าสู่ระบบ...' : 'เข้าสู่ระบบ'}
+            {loading ? "กำลังเข้าสู่ระบบ..." : "เข้าสู่ระบบ"}
           </button>
         </form>
 
