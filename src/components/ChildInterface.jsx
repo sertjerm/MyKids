@@ -18,8 +18,8 @@ import {
 import Avatar from "./Avatar";
 import BehaviorCard from "./BehaviorCard";
 import RewardCard from "./RewardCard";
-import BehaviorItem from "./BehaviorItem"; // เพิ่มบรรทัดนี้
-import RewardItem from "./RewardItem"; // ✅ เพิ่ม import RewardItem
+import BehaviorItem from "./BehaviorItem";
+import RewardItem from "./RewardItem";
 import api from "../services/api";
 
 const ChildInterface = ({ family, child, onBack }) => {
@@ -41,6 +41,31 @@ const ChildInterface = ({ family, child, onBack }) => {
     loadData();
   }, [child.id || child.Id, family.id]);
 
+  // 🎯 คำนวณ behaviorCounts จาก todayActivities (sync counts with activities)
+  useEffect(() => {
+    // ถ้า activities ว่าง ไม่ต้อง sync (กันกรณี save แล้ว API ยังไม่ return กิจกรรมใหม่)
+    if (todayActivities.length === 0 || familyBehaviors.length === 0) return;
+
+    const counts = {};
+    todayActivities.forEach((activity) => {
+      if (activity.ActivityType === "Good" || activity.ActivityType === "Bad") {
+        const behaviorId = activity.ItemId;
+        counts[behaviorId] = (counts[behaviorId] || 0) + 1;
+      }
+    });
+    setBehaviorCounts((prevCounts) => {
+      // ถ้ามี pending (ผู้ใช้เพิ่งเลือกเพิ่ม) ให้คงไว้
+      const newCounts = { ...counts };
+      Object.keys(prevCounts).forEach((behaviorId) => {
+        if (prevCounts[behaviorId] > (counts[behaviorId] || 0)) {
+          newCounts[behaviorId] = prevCounts[behaviorId];
+        }
+      });
+      return newCounts;
+    });
+    // eslint-disable-next-line
+  }, [todayActivities, familyBehaviors]);
+
   const loadData = async () => {
     setLoading(true);
     try {
@@ -49,38 +74,42 @@ const ChildInterface = ({ family, child, onBack }) => {
         api.getRewards(family.id),
         api.getDailyActivities(child.id || child.Id, today),
       ]);
-
       setFamilyBehaviors(behaviors || []);
       setFamilyRewards(rewards || []);
       setTodayActivities(activities || []);
-
-      // ⭐ เพิ่มการดึงคะแนนรวมล่าสุด
       try {
         const pointsData = await api.getChildTotalPoints(child.id || child.Id);
         setCurrentPoints(pointsData.totalPoints);
       } catch (error) {
-        console.error("Failed to get total points:", error);
         setCurrentPoints(child.currentPoints || 0);
       }
     } catch (error) {
-      console.error("Failed to load data:", error);
       setCurrentPoints(child.currentPoints || 0);
     } finally {
       setLoading(false);
     }
   };
 
-  // คำนวณคะแนนที่จะได้รับจาก behaviorCounts
+  // คำนวณ pendingPoints เฉพาะส่วนที่ยังไม่ได้บันทึก
   useEffect(() => {
     let totalPending = 0;
     Object.entries(behaviorCounts).forEach(([behaviorId, count]) => {
       const behavior = familyBehaviors.find((b) => b.Id === behaviorId);
       if (behavior && count > 0) {
-        totalPending += behavior.Points * count;
+        const doneToday = todayActivities.filter(
+          (activity) =>
+            activity.ItemId === behaviorId &&
+            (activity.ActivityType === "Good" ||
+              activity.ActivityType === "Bad")
+        ).length;
+        const pendingCount = count - doneToday;
+        if (pendingCount > 0) {
+          totalPending += behavior.Points * pendingCount;
+        }
       }
     });
     setPendingPoints(totalPending);
-  }, [behaviorCounts, familyBehaviors]);
+  }, [behaviorCounts, familyBehaviors, todayActivities]);
 
   const handleBehaviorCountChange = (behaviorId, delta) => {
     setBehaviorCounts((prev) => {
@@ -107,40 +136,38 @@ const ChildInterface = ({ family, child, onBack }) => {
     setSaving(true);
     try {
       const promises = [];
-
-      // บันทึกกิจกรรมแต่ละพฤติกรรม
       Object.entries(behaviorCounts).forEach(([behaviorId, count]) => {
-        if (count > 0) {
-          const behavior = familyBehaviors.find((b) => b.Id === behaviorId);
-          if (behavior) {
-            for (let i = 0; i < count; i++) {
-              promises.push(
-                api.recordActivity({
-                  ChildId: child.id || child.Id,
-                  ActivityType: behavior.Type,
-                  ItemId: behaviorId,
-                  EarnedPoints: behavior.Points,
-                })
-              );
-            }
+        const behavior = familyBehaviors.find((b) => b.Id === behaviorId);
+        if (behavior && count > 0) {
+          const doneToday = todayActivities.filter(
+            (activity) =>
+              activity.ItemId === behaviorId &&
+              (activity.ActivityType === "Good" ||
+                activity.ActivityType === "Bad")
+          ).length;
+          const needToSave = count - doneToday;
+          for (let i = 0; i < needToSave; i++) {
+            promises.push(
+              api.recordActivity({
+                ChildId: child.id || child.Id,
+                ActivityType: behavior.Type,
+                ItemId: behaviorId,
+                EarnedPoints: behavior.Points,
+              })
+            );
           }
         }
       });
-
       await Promise.all(promises);
-
-      // ⭐ รีเซ็ต counts ก่อน
-      setBehaviorCounts({});
-      setPendingPoints(0);
-
-      // ⭐ ดึงคะแนนล่าสุดจาก API แทนการบวกเอง
       const pointsData = await api.getChildTotalPoints(child.id || child.Id);
       setCurrentPoints(pointsData.totalPoints);
-
-      // รีโหลดข้อมูลกิจกรรม
-      await loadData();
+      const activities = await api.getDailyActivities(
+        child.id || child.Id,
+        today
+      );
+      setTodayActivities(activities || []);
+      setPendingPoints(0);
     } catch (error) {
-      console.error("Failed to save activities:", error);
       alert("เกิดข้อผิดพลาดในการบันทึก กรุณาลองใหม่อีกครั้ง");
     } finally {
       setSaving(false);
@@ -152,7 +179,6 @@ const ChildInterface = ({ family, child, onBack }) => {
       alert("คะแนนไม่เพียงพอสำหรับรางวัลนี้");
       return;
     }
-
     setSaving(true);
     try {
       await api.recordActivity({
@@ -161,12 +187,10 @@ const ChildInterface = ({ family, child, onBack }) => {
         ItemId: reward.Id,
         EarnedPoints: -reward.Cost,
       });
-
       setCurrentPoints(currentPoints - reward.Cost);
       await loadData();
       alert(`แลกรางวัล "${reward.Name}" เรียบร้อยแล้ว!`);
     } catch (error) {
-      console.error("Failed to redeem reward:", error);
       alert("เกิดข้อผิดพลาดในการแลกรางวัล กรุณาลองใหม่อีกครั้ง");
     } finally {
       setSaving(false);
@@ -175,8 +199,15 @@ const ChildInterface = ({ family, child, onBack }) => {
 
   const goodBehaviors = familyBehaviors.filter((b) => b.Type === "Good");
   const badBehaviors = familyBehaviors.filter((b) => b.Type === "Bad");
-  const totalPendingActivities = Object.values(behaviorCounts).reduce(
-    (sum, count) => sum + count,
+  const totalPendingActivities = Object.entries(behaviorCounts).reduce(
+    (sum, [behaviorId, count]) => {
+      const doneToday = todayActivities.filter(
+        (activity) =>
+          activity.ItemId === behaviorId &&
+          (activity.ActivityType === "Good" || activity.ActivityType === "Bad")
+      ).length;
+      return sum + Math.max(0, count - doneToday);
+    },
     0
   );
 
@@ -193,7 +224,6 @@ const ChildInterface = ({ family, child, onBack }) => {
               <Home className="w-5 h-5" />
               <span>กลับหน้าหลัก</span>
             </button>
-
             <div className="flex items-center gap-4 text-center">
               <Avatar emoji={child.avatarPath || child.AvatarPath} size="lg" />
               <div>
@@ -218,7 +248,6 @@ const ChildInterface = ({ family, child, onBack }) => {
                 </div>
               </div>
             </div>
-
             <div className="flex items-center gap-2">
               <button
                 onClick={() => window.location.reload()}
@@ -229,7 +258,6 @@ const ChildInterface = ({ family, child, onBack }) => {
             </div>
           </div>
         </div>
-
         {/* Tabs */}
         <div className="card-bg-glass backdrop-blur-sm rounded-2xl card-shadow mb-6 overflow-hidden">
           <div className="flex">
@@ -271,7 +299,6 @@ const ChildInterface = ({ family, child, onBack }) => {
             })}
           </div>
         </div>
-
         {/* Content */}
         <div className="card-bg-glass backdrop-blur-sm rounded-2xl card-shadow p-4 sm:p-6">
           {loading ? (
@@ -301,7 +328,6 @@ const ChildInterface = ({ family, child, onBack }) => {
                   </div>
                 </div>
               )}
-
               {/* Bad Behaviors */}
               {tab === "bad" && (
                 <div>
@@ -323,7 +349,6 @@ const ChildInterface = ({ family, child, onBack }) => {
                   </div>
                 </div>
               )}
-
               {/* Rewards */}
               {tab === "rewards" && (
                 <div>
@@ -347,7 +372,6 @@ const ChildInterface = ({ family, child, onBack }) => {
             </>
           )}
         </div>
-
         {/* Save Button */}
         {totalPendingActivities > 0 && (
           <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-50">
