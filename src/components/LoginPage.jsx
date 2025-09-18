@@ -2,7 +2,7 @@
 import React, { useState } from "react";
 import { Users } from "lucide-react";
 import { mockFamilies, getChildrenByFamily } from "../data/mockData";
-import Avatar from "./Avatar";
+import {Avatar} from 'antd'
 
 const LoginPage = ({ onLogin }) => {
   const [loading, setLoading] = useState(false);

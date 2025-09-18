@@ -8,27 +8,21 @@
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    
     "build:production": "NODE_ENV=production vite build",
     "build:development": "NODE_ENV=development vite build",
-    
     "deploy:prepare": "npm run build:production && npm run deploy:copy-htaccess",
     "deploy:copy-htaccess": "cp .htaccess dist/.htaccess",
-    
     "serve:local": "npm run build:production && npx http-server dist -p 3000 -c-1",
-    
     "clean": "rm -rf dist node_modules/.vite",
     "fresh-install": "npm run clean && npm install",
-    
     "test:build": "npm run build:production && echo 'Build completed successfully'",
     "test:preview": "npm run build:production && vite preview --port 3000",
-    
     "debug:env": "node -e \"console.log('Environment Variables:'); Object.keys(process.env).filter(key => key.startsWith('VITE_')).forEach(key => console.log(key + '=' + process.env[key]));\"",
-    
     "db:create": "mysql -u root -p < database/schema.sql",
     "db:seed": "echo 'Database seeded with sample data'"
   },
   "dependencies": {
+    "antd": "^5.27.4",
     "axios": "^1.11.0",
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",

@@ -4,7 +4,7 @@ import { Calendar, Filter, Download, TrendingUp, User, Clock } from 'lucide-reac
 import { useData } from '../../hooks/useData'
 import Card from '../common/Card'
 import Button from '../common/Button'
-import Avatar from '../common/Avatar'
+import {Avatar} from 'antd'
 import LoadingSpinner from '../common/LoadingSpinner'
 
 function ActivitiesHistory() {

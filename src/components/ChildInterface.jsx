@@ -15,7 +15,7 @@ import {
   TrendingUp,
   TrendingDown,
 } from "lucide-react";
-import Avatar from "./Avatar";
+import {Avatar} from 'antd';
 import BehaviorCard from "./BehaviorCard";
 import RewardCard from "./RewardCard";
 import BehaviorItem from "./BehaviorItem";
