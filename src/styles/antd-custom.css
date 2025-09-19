@@ -1,0 +1,334 @@
+/* src/styles/antd-custom.css */
+/* Custom Ant Design styles for My-Kids Management System */
+
+/* Ant Design CSS reset import */
+@import 'antd/dist/reset.css';
+
+/* Kid-friendly color overrides */
+:root {
+  --primary-color: #a855f7;
+  --success-color: #10b981;
+  --warning-color: #f59e0b;
+  --error-color: #ef4444;
+  --info-color: #3b82f6;
+}
+
+/* Custom behavior cards */
+.behavior-card {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  border-radius: 16px !important;
+  overflow: hidden;
+}
+
+.behavior-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+}
+
+.behavior-card.selected {
+  transform: scale(1.02);
+  border-width: 2px;
+  box-shadow: 0 8px 25px rgba(24, 144, 255, 0.3);
+}
+
+.behavior-good {
+  background: linear-gradient(135deg, #f6ffed 0%, #e6fffb 100%);
+  border-color: #b7eb8f;
+}
+
+.behavior-bad {
+  background: linear-gradient(135deg, #fff2e8 0%, #ffebf0 100%);
+  border-color: #ffadd6;
+}
+
+/* Child cards */
+.child-card {
+  transition: all 0.3s ease;
+  border-radius: 20px !important;
+  overflow: hidden;
+}
+
+.child-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.15);
+}
+
+.child-card.selected {
+  border-color: #1890ff;
+  box-shadow: 0 0 0 4px rgba(24, 144, 255, 0.2);
+}
+
+/* Button overrides for Ant Design */
+.ant-btn {
+  border-radius: 12px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
+  font-family: 'Sarabun', sans-serif;
+}
+
+.ant-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.ant-btn-primary {
+  background: linear-gradient(135deg, #a855f7 0%, #d946ef 100%);
+  border: none;
+}
+
+.ant-btn-primary:hover {
+  background: linear-gradient(135deg, #9333ea 0%, #c026d3 100%);
+}
+
+/* Card overrides for Ant Design */
+.ant-card {
+  border-radius: 16px;
+  border: 1px solid #f0f0f0;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  font-family: 'Sarabun', sans-serif;
+}
+
+.ant-card-hoverable:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.12);
+}
+
+.ant-card-head {
+  border-bottom: 2px solid #f0f0f0;
+  background: linear-gradient(135deg, #fdf2f8 0%, #fce7f3 100%);
+  border-radius: 16px 16px 0 0;
+}
+
+.ant-card-head-title {
+  font-weight: 700;
+  color: #1f2937;
+  font-family: 'Sarabun', sans-serif;
+}
+
+/* Avatar overrides for Ant Design */
+.ant-avatar {
+  border: 3px solid #ffffff;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
+}
+
+.ant-avatar:hover {
+  transform: scale(1.05);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
+}
+
+/* Progress overrides */
+.ant-progress-line {
+  margin-bottom: 8px;
+}
+
+.ant-progress-bg {
+  border-radius: 20px;
+}
+
+.ant-progress-inner {
+  border-radius: 20px;
+  background-color: #f3f4f6;
+}
+
+/* Tag overrides */
+.ant-tag {
+  border-radius: 20px;
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 12px;
+  border: 1px solid transparent;
+  font-family: 'Sarabun', sans-serif;
+}
+
+/* Modal overrides */
+.ant-modal {
+  border-radius: 20px;
+  overflow: hidden;
+}
+
+.ant-modal-content {
+  border-radius: 20px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+}
+
+.ant-modal-header {
+  background: linear-gradient(135deg, #fdf2f8 0%, #fce7f3 100%);
+  border-bottom: 2px solid #f0f0f0;
+  padding: 20px 24px;
+}
+
+.ant-modal-title {
+  font-weight: 700;
+  font-size: 18px;
+  color: #1f2937;
+  font-family: 'Sarabun', sans-serif;
+}
+
+.ant-modal-body {
+  padding: 24px;
+}
+
+/* Table overrides */
+.ant-table {
+  border-radius: 12px;
+  overflow: hidden;
+  font-family: 'Sarabun', sans-serif;
+}
+
+.ant-table-thead > tr > th {
+  background: linear-gradient(135deg, #fdf2f8 0%, #fce7f3 100%);
+  border-bottom: 2px solid #f0f0f0;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+/* Form overrides */
+.ant-form-item-label > label {
+  font-weight: 600;
+  color: #374151;
+  font-family: 'Sarabun', sans-serif;
+}
+
+.ant-input,
+.ant-select-selector,
+.ant-input-number {
+  border-radius: 12px;
+  border: 2px solid #e5e7eb;
+  font-family: 'Sarabun', sans-serif;
+}
+
+.ant-input:focus,
+.ant-select-selector:focus,
+.ant-input-number:focus {
+  border-color: #a855f7;
+  box-shadow: 0 0 0 3px rgba(168, 85, 247, 0.1);
+}
+
+/* Notification overrides */
+.ant-notification {
+  font-family: 'Sarabun', sans-serif;
+}
+
+.ant-notification-notice {
+  border-radius: 16px;
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+}
+
+/* Message overrides */
+.ant-message {
+  font-family: 'Sarabun', sans-serif;
+}
+
+.ant-message-notice-content {
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .behavior-card,
+  .child-card,
+  .ant-card {
+    border-radius: 12px;
+  }
+  
+  .ant-btn {
+    border-radius: 8px;
+  }
+  
+  .ant-modal-content {
+    border-radius: 12px;
+    margin: 16px;
+  }
+}
+
+/* Custom animations for kid-friendly interactions */
+@keyframes bounce-gentle {
+  0%, 20%, 50%, 80%, 100% {
+    transform: translateY(0);
+  }
+  40% {
+    transform: translateY(-5px);
+  }
+  60% {
+    transform: translateY(-3px);
+  }
+}
+
+.animate-bounce-gentle {
+  animation: bounce-gentle 1s ease-in-out;
+}
+
+@keyframes wiggle {
+  0%, 7% { transform: rotateZ(0); }
+  15% { transform: rotateZ(-15deg); }
+  20% { transform: rotateZ(10deg); }
+  25% { transform: rotateZ(-10deg); }
+  30% { transform: rotateZ(6deg); }
+  35% { transform: rotateZ(-4deg); }
+  40%, 100% { transform: rotateZ(0); }
+}
+
+.animate-wiggle {
+  animation: wiggle 1s ease-in-out;
+}
+
+/* Loading states */
+.ant-card-loading-content {
+  border-radius: 16px;
+}
+
+.ant-skeleton-content {
+  padding: 16px;
+}
+
+/* Focus states for accessibility */
+.ant-btn:focus,
+.ant-card:focus-within,
+.ant-avatar:focus {
+  outline: 2px solid #a855f7;
+  outline-offset: 2px;
+}
+
+/* Pastel theme for kid-friendly design */
+.pastel-theme {
+  --pastel-pink: #FFE4E1;
+  --pastel-purple: #E6E6FA;
+  --pastel-blue: #E0E6FF;
+  --pastel-cyan: #E0FFFF;
+  --pastel-green: #E6FFE6;
+  --pastel-yellow: #FFF8DC;
+  --pastel-orange: #FFEFD5;
+  --pastel-red: #FFEBEE;
+}
+
+/* Custom utility classes */
+.bg-pastel-gradient {
+  background: linear-gradient(135deg, var(--pastel-pink), var(--pastel-purple), var(--pastel-blue));
+}
+
+.text-kid-friendly {
+  font-family: 'Comic Neue', 'Comic Sans MS', cursive, sans-serif;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.shadow-kid {
+  box-shadow: 0 8px 25px rgba(168, 85, 247, 0.2);
+}
+
+.hover-lift {
+  transition: transform 0.3s ease;
+}
+
+.hover-lift:hover {
+  transform: translateY(-4px);
+}

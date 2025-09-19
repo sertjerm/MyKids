@@ -1,0 +1,55 @@
+// vite.config.js
+// แก้ไข - ลบ proxy configuration เพราะใช้การเชื่อมต่อโดยตรงแล้ว
+
+import { defineConfig } from "vite";
+import react from "@vitejs/plugin-react";
+
+export default defineConfig({
+  plugins: [react()],
+  base: "/mykids/",
+  build: {
+    outDir: "dist",
+    assetsDir: "assets",
+    sourcemap: false,
+    minify: "terser",
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes("node_modules")) {
+            if (id.includes("antd")) return "antd";
+            if (id.includes("react")) return "react";
+            return "vendor";
+          }
+        },
+      },
+    },
+  },
+  server: {
+    port: 5173,
+    host: true,
+    open: "/mykids/",
+    proxy: {
+      // ให้ frontend เรียก /api/... แล้วให้ Vite forward ไปยัง backend จริง
+      "/api": {
+        target: "http://localhost:8080", // เปลี่ยนเป็น URL backend ของคุณ (PHP)
+        changeOrigin: true,
+        secure: false,
+        // ถ้า backend ไม่มี prefix /api ให้เอา /api ออกก่อนส่งไป
+        // rewrite: (path) => path.replace(/^\/api/, ""),
+      },
+    },
+  },
+  define: {
+    __DEV__: process.env.NODE_ENV === "development",
+    __PROD__: process.env.NODE_ENV === "production",
+  },
+  optimizeDeps: {
+    include: [
+      "axios",
+      "react",
+      "react-dom",
+      "react-router-dom",
+      "lucide-react",
+    ],
+  },
+});

@@ -1,0 +1,113 @@
+import { defineConfig } from 'vite'
+import react from '@vitejs/plugin-react'
+
+// https://vitejs.dev/config/
+export default defineConfig({
+  plugins: [
+    react({
+      // Add React refresh for development
+      include: "**/*.{jsx,tsx}",
+    })
+  ],
+  
+  // Development server configuration
+  server: {
+    host: '0.0.0.0',
+    port: 5173,
+    strictPort: false,
+    open: false
+  },
+  
+  // Build configuration for production
+  build: {
+    outDir: 'dist',
+    sourcemap: false,
+    minify: 'esbuild',
+    target: 'esnext',
+    
+    rollupOptions: {
+      output: {
+        // Manual chunk splitting to prevent vendor errors
+        manualChunks: (id) => {
+          // React ecosystem
+          if (id.includes('react') || id.includes('react-dom')) {
+            return 'react-vendor'
+          }
+          
+          // Ant Design
+          if (id.includes('antd') || id.includes('@ant-design')) {
+            return 'antd-vendor'
+          }
+          
+          // Icons
+          if (id.includes('lucide-react') || id.includes('icons')) {
+            return 'icons-vendor'
+          }
+          
+          // Router
+          if (id.includes('react-router')) {
+            return 'router-vendor'
+          }
+          
+          // Other vendor packages
+          if (id.includes('node_modules')) {
+            return 'vendor'
+          }
+        },
+        
+        // Ensure proper chunk naming
+        chunkFileNames: (chunkInfo) => {
+          const facadeModuleId = chunkInfo.facadeModuleId ? chunkInfo.facadeModuleId.split('/').pop() : 'chunk'
+          return `js/${chunkInfo.name || facadeModuleId}-[hash].js`
+        },
+        
+        assetFileNames: (assetInfo) => {
+          if (assetInfo.name && assetInfo.name.endsWith('.css')) {
+            return 'css/[name]-[hash].css'
+          }
+          return 'assets/[name]-[hash].[ext]'
+        }
+      }
+    },
+    
+    // Chunk size warning limit
+    chunkSizeWarningLimit: 1000
+  },
+  
+  // Dependency optimization
+  optimizeDeps: {
+    include: [
+      'react',
+      'react-dom',
+      'react-dom/client',
+      'antd',
+      'lucide-react',
+      '@ant-design/icons',
+      'react-router-dom'
+    ],
+    esbuildOptions: {
+      target: 'esnext'
+    }
+  },
+  
+  // Define global variables
+  define: {
+    'process.env': {},
+    'global': 'globalThis',
+    '__DEV__': JSON.stringify(false)
+  },
+  
+  // CSS configuration
+  css: {
+    postcss: {
+      plugins: []
+    }
+  },
+  
+  // Resolve configuration
+  resolve: {
+    alias: {
+      '@': '/src'
+    }
+  }
+})

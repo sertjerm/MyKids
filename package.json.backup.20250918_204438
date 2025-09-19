@@ -21,8 +21,7 @@
     "db:create": "mysql -u root -p < database/schema.sql",
     "db:seed": "echo 'Database seeded with sample data'",
     "antd-theme": "antd-tools theme generate",
-    "analyze": "npm run build && npx webpack-bundle-analyzer build/static/js/*.js",
-    "build:prod": "npm run build && npm run preview"
+    "analyze": "npm run build && npx webpack-bundle-analyzer build/static/js/*.js"
   },
   "dependencies": {
     "@ant-design/icons": "^6.0.2",
@@ -67,11 +66,5 @@
       "last 1 firefox version",
       "last 1 safari version"
     ]
-  },
-  "overrides": {
-    "react": "^19.1.1",
-    "react-dom": "^19.1.1",
-    "@types/react": "^19.1.10",
-    "@types/react-dom": "^19.1.7"
   }
 }

@@ -228,6 +228,7 @@ const FamilyLogin = ({ onLogin }) => {
         >
           <InputField
             type="email"
+            autoComplete="email"
             placeholder="อีเมลของคุณ"
             value={formData.email}
             onChange={(e) =>
@@ -239,6 +240,7 @@ const FamilyLogin = ({ onLogin }) => {
           />
           <InputField
             type="password"
+            autoComplete="current-password"
             placeholder="รหัสผ่าน"
             value={formData.password}
             onChange={(e) =>

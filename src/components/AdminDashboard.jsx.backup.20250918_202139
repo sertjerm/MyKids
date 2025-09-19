@@ -24,209 +24,119 @@ import {
   SmileOutlined,
 } from "@ant-design/icons";
 import api from "../services/api";
-import { behaviorCategories, rewardCategories } from "../constants/constants";
+
+// Mock Data - Extended from existing structure
+const mockFamilies = [
+  {
+    Id: "F001",
+    Name: "ครอบครัวมีสุข",
+    Email: "meesuk@email.com",
+    Phone: "081-234-5678",
+    AvatarPath: "👨‍👩‍👧‍👦",
+    IsActive: true,
+    CreatedAt: "2024-01-01",
+  },
+  {
+    Id: "F002",
+    Name: "ครอบครัวสุขใส",
+    Email: "suksai@email.com",
+    Phone: "082-345-6789",
+    AvatarPath: "👪",
+    IsActive: true,
+    CreatedAt: "2024-01-15",
+  },
+];
+
+const mockChildren = [
+  {
+    Id: "C001",
+    FamilyId: "F001",
+    Name: "น้องพีฟ่า",
+    Age: 11,
+    Gender: "F",
+    AvatarPath: "👧",
+    currentPoints: 47,
+    IsActive: true,
+    CreatedAt: "2024-01-01",
+  },
+  {
+    Id: "C002",
+    FamilyId: "F001",
+    Name: "น้องพีฟอง",
+    Age: 10,
+    Gender: "M",
+    AvatarPath: "👦",
+    currentPoints: 35,
+    IsActive: true,
+    CreatedAt: "2024-01-01",
+  },
+];
+
+const mockBehaviors = [
+  {
+    Id: "B001",
+    FamilyId: "F001",
+    Name: "แปรงฟัน",
+    Points: 3,
+    Color: "#FF8CC8",
+    Category: "สุขภาพ",
+    Type: "Good",
+    IsRepeatable: true,
+    IsActive: true,
+  },
+  {
+    Id: "B002",
+    FamilyId: "F001",
+    Name: "เก็บของเล่น",
+    Points: 2,
+    Color: "#87CEEB",
+    Category: "ความรับผิดชอบ",
+    Type: "Good",
+    IsRepeatable: true,
+    IsActive: true,
+  },
+  {
+    Id: "B003",
+    FamilyId: "F001",
+    Name: "ไม่เก็บของเล่น",
+    Points: -2,
+    Color: "#FFB6C1",
+    Category: "ไม่รับผิดชอบ",
+    Type: "Bad",
+    IsRepeatable: true,
+    IsActive: true,
+  },
+];
+
+const mockRewards = [
+  {
+    Id: "R001",
+    FamilyId: "F001",
+    Name: "ไอศกรีม",
+    Cost: 10,
+    Color: "#FFE4B5",
+    Category: "ขนม",
+    IsActive: true,
+  },
+  {
+    Id: "R002",
+    FamilyId: "F001",
+    Name: "ของเล่นใหม่",
+    Cost: 50,
+    Color: "#E6E6FA",
+    Category: "ของเล่น",
+    IsActive: true,
+  },
+];
 
 // Enhanced Admin Dashboard with CRUD
 const AdminDashboard = ({
-  family,
+  family = mockFamilies[0],
   onLogout = () => {},
   onSelectChild = () => {},
 }) => {
   const [activeTab, setActiveTab] = useState("children");
   const [loading, setLoading] = useState(false);
-  const [form] = Form.useForm();
-
-  // === RENDER FUNCTIONS ===
-
-  // Render Child Card
-  const renderChildCard = (child) => {
-    const currentPoints = child.currentPoints || child.CurrentPoints || 0;
-
-    return (
-      <Card
-        key={child.Id || child.id}
-        hoverable
-        className="child-card mb-4"
-        onClick={() => onSelectChild && onSelectChild(child)}
-      >
-        <div className="flex items-center gap-4">
-          <Avatar
-            size={64}
-            src={child.AvatarPath}
-            style={{ backgroundColor: "#87d068" }}
-          >
-            {child.AvatarPath || (child.Name ? child.Name[0] : "?")}
-          </Avatar>
-
-          <div className="flex-1">
-            <h3 className="text-lg font-bold text-gray-800">{child.Name}</h3>
-            <p className="text-sm text-gray-600">อายุ {child.Age} ปี</p>
-            <div className="flex items-center gap-2 mt-2">
-              <span className="px-3 py-1 bg-gradient-to-r from-yellow-400 to-orange-400 text-white rounded-full text-sm font-bold">
-                ⭐ {currentPoints} คะแนน
-              </span>
-            </div>
-          </div>
-
-          <div className="flex flex-col gap-2">
-            <Button
-              size="small"
-              onClick={(e) => {
-                e.stopPropagation();
-                setEditingItem(child);
-                setShowChildModal(true);
-              }}
-            >
-              แก้ไข
-            </Button>
-            <Button
-              size="small"
-              danger
-              onClick={(e) => {
-                e.stopPropagation();
-                if (window.confirm(`ต้องการลบ ${child.Name} หรือไม่?`)) {
-                  const updatedChildren = familyData.children.filter(
-                    (c) => c.Id !== child.Id
-                  );
-                  setFamilyData({ ...familyData, children: updatedChildren });
-                }
-              }}
-            >
-              ลบ
-            </Button>
-          </div>
-        </div>
-      </Card>
-    );
-  };
-
-  // Render Behavior Card
-  const renderBehaviorCard = (behavior) => {
-    const isGood = behavior.Type === "Good";
-
-    return (
-      <Card
-        key={behavior.Id}
-        hoverable
-        className={`behavior-card mb-4 ${
-          isGood ? "behavior-good" : "behavior-bad"
-        }`}
-        style={{ borderColor: behavior.Color }}
-      >
-        <div className="flex items-center gap-4">
-          <div
-            className="w-8 h-8 rounded-full"
-            style={{ backgroundColor: behavior.Color }}
-          />
-
-          <div className="flex-1">
-            <h3 className="text-lg font-bold text-gray-800">{behavior.Name}</h3>
-            <p className="text-sm text-gray-600">{behavior.Category}</p>
-            <div className="flex items-center gap-2 mt-2">
-              <span
-                className={`px-3 py-1 rounded-full text-sm font-bold text-white ${
-                  isGood
-                    ? "bg-gradient-to-r from-green-400 to-emerald-500"
-                    : "bg-gradient-to-r from-red-400 to-pink-500"
-                }`}
-              >
-                {isGood ? "+" : ""}
-                {behavior.Points} คะแนน
-              </span>
-              {behavior.IsRepeatable && (
-                <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs">
-                  ทำซ้ำได้
-                </span>
-              )}
-            </div>
-          </div>
-
-          <div className="flex flex-col gap-2">
-            <Button
-              size="small"
-              onClick={() => {
-                setEditingItem(behavior);
-                setBehaviorForm(behavior);
-                setShowBehaviorModal(true);
-              }}
-            >
-              แก้ไข
-            </Button>
-            <Button
-              size="small"
-              danger
-              onClick={() => {
-                if (window.confirm(`ต้องการลบ ${behavior.Name} หรือไม่?`)) {
-                  const updatedBehaviors = familyBehaviors.filter(
-                    (b) => b.Id !== behavior.Id
-                  );
-                  setFamilyBehaviors(updatedBehaviors);
-                }
-              }}
-            >
-              ลบ
-            </Button>
-          </div>
-        </div>
-      </Card>
-    );
-  };
-
-  // Render Reward Card
-  const renderRewardCard = (reward) => {
-    return (
-      <Card
-        key={reward.Id}
-        hoverable
-        className="reward-card mb-4"
-        style={{ borderColor: reward.Color }}
-      >
-        <div className="flex items-center gap-4">
-          <div
-            className="w-8 h-8 rounded-full"
-            style={{ backgroundColor: reward.Color }}
-          />
-
-          <div className="flex-1">
-            <h3 className="text-lg font-bold text-gray-800">{reward.Name}</h3>
-            <p className="text-sm text-gray-600">{reward.Category}</p>
-            <div className="flex items-center gap-2 mt-2">
-              <span className="px-3 py-1 bg-gradient-to-r from-purple-400 to-pink-400 text-white rounded-full text-sm font-bold">
-                💎 {reward.Cost} คะแนน
-              </span>
-            </div>
-          </div>
-
-          <div className="flex flex-col gap-2">
-            <Button
-              size="small"
-              onClick={() => {
-                setEditingItem(reward);
-                setRewardForm(reward);
-                setShowRewardModal(true);
-              }}
-            >
-              แก้ไข
-            </Button>
-            <Button
-              size="small"
-              danger
-              onClick={() => {
-                if (window.confirm(`ต้องการลบ ${reward.Name} หรือไม่?`)) {
-                  const updatedRewards = familyRewards.filter(
-                    (r) => r.Id !== reward.Id
-                  );
-                  setFamilyRewards(updatedRewards);
-                }
-              }}
-            >
-              ลบ
-            </Button>
-          </div>
-        </div>
-      </Card>
-    );
-  };
 
   // Ensure we have a valid family object
   const currentFamily = family || mockFamilies[0];
@@ -400,7 +310,7 @@ const AdminDashboard = ({
         title={editingItem ? "แก้ไขข้อมูลครอบครัว" : "สร้างครอบครัวใหม่"}
         okText="บันทึก"
         cancelText="ยกเลิก"
-        onOk={handleChildSubmit}
+        onOk={handleSubmit}
       >
         <Form layout="vertical">
           <Form.Item label="ชื่อครอบครัว" required>
@@ -457,48 +367,56 @@ const AdminDashboard = ({
       try {
         const values = await form.validateFields();
 
+        setLoading(true);
+
         if (editingItem) {
-          // แก้ไขเด็กที่มีอยู่
+          // Update existing child via API
+          const updatedChild = {
+            ...editingItem,
+            ...values,
+            Age: parseInt(values.Age),
+          };
+
+          await api.updateChild(editingItem.id || editingItem.Id, updatedChild);
+
           const updatedChildren = familyData.children.map((child) =>
-            child.Id === editingItem.Id
-              ? {
-                  ...child,
-                  ...values,
-                  Age: parseInt(values.Age),
-                  AvatarPath:
-                    values.AvatarPath || (values.Gender === "M" ? "👦" : "👧"),
-                }
+            (child.id || child.Id) === (editingItem.id || editingItem.Id)
+              ? updatedChild
               : child
           );
           setFamilyData({ ...familyData, children: updatedChildren });
         } else {
-          // เพิ่มเด็กใหม่
+          // Create new child via API
           const newChild = {
-            Id: `C${Date.now()}`,
             FamilyId: currentFamily.Id,
             ...values,
             Age: parseInt(values.Age),
             AvatarPath:
               values.AvatarPath || (values.Gender === "M" ? "👦" : "👧"),
             currentPoints: 0,
-            CurrentPoints: 0,
             IsActive: true,
-            CreatedAt: new Date().toISOString().split("T")[0],
           };
+
+          const createdChild = await api.createChild(newChild);
+
           setFamilyData({
             ...familyData,
-            children: [...familyData.children, newChild],
+            children: [
+              ...familyData.children,
+              createdChild || { ...newChild, Id: `C${Date.now()}` },
+            ],
           });
         }
+
         setShowChildModal(false);
         setEditingItem(null);
-        form.resetFields();
-        message.success(
-          editingItem ? "แก้ไขข้อมูลสำเร็จ!" : "เพิ่มเด็กใหม่สำเร็จ!"
-        );
+        setChildForm({ Name: "", Age: "", Gender: "M", AvatarPath: "" });
+        message.success("บันทึกข้อมูลสำเร็จ");
       } catch (error) {
         console.error("Error saving child:", error);
-        message.error("เกิดข้อผิดพลาดในการบันทึก กรุณาลองใหม่");
+        alert("เกิดข้อผิดพลาดในการบันทึก กรุณาลองใหม่");
+      } finally {
+        setLoading(false);
       }
     };
 
@@ -513,7 +431,7 @@ const AdminDashboard = ({
         title={editingItem ? "แก้ไขข้อมูลเด็ก" : "เพิ่มเด็กใหม่"}
         okText="บันทึก"
         cancelText="ยกเลิก"
-        onOk={ChildFormModalHandleSubmit}
+        onOk={handleSubmit}
       >
         <Form form={form} layout="vertical">
           <Form.Item
@@ -629,6 +547,15 @@ const AdminDashboard = ({
       });
     };
 
+    const categories = [
+      { value: "สุขภาพ", label: "สุขภาพ" },
+      { value: "ความรับผิดชอบ", label: "ความรับผิดชอบ" },
+      { value: "การเรียนรู้", label: "การเรียนรู้" },
+      { value: "ช่วยเหลือ", label: "ช่วยเหลือ" },
+      { value: "พฤติกรรม", label: "พฤติกรรม" },
+      { value: "อื่นๆ", label: "อื่นๆ" },
+    ];
+
     return (
       <Modal
         open={showBehaviorModal}
@@ -647,7 +574,7 @@ const AdminDashboard = ({
         title={editingItem ? "แก้ไขพฤติกรรม" : "เพิ่มพฤติกรรมใหม่"}
         okText="บันทึก"
         cancelText="ยกเลิก"
-        onOk={BehaviorFormModalHandleSubmit}
+        onOk={handleSubmit}
       >
         <Form layout="vertical">
           <Form.Item label="ชื่อพฤติกรรม" required>
@@ -686,10 +613,7 @@ const AdminDashboard = ({
 
           <div className="grid grid-cols-2 gap-4">
             <Form.Item label="หมวดหมู่" name="Category">
-              <Select
-                options={behaviorCategories}
-                placeholder="เลือกหมวดหมู่"
-              />
+              <Select options={categories} placeholder="เลือกหมวดหมู่" />
             </Form.Item>
 
             <Form.Item label="สี" name="Color">
@@ -777,6 +701,14 @@ const AdminDashboard = ({
       setRewardForm({ Name: "", Cost: "", Color: "#FFE4B5", Category: "" });
     };
 
+    const categories = [
+      { value: "ขนม", label: "ขนม" },
+      { value: "ของเล่น", label: "ของเล่น" },
+      { value: "กิจกรรม", label: "กิจกรรม" },
+      { value: "เงิน", label: "เงิน" },
+      { value: "อื่นๆ", label: "อื่นๆ" },
+    ];
+
     return (
       <Modal
         open={showRewardModal}
@@ -788,7 +720,7 @@ const AdminDashboard = ({
         title={editingItem ? "แก้ไขรางวัล" : "เพิ่มรางวัลใหม่"}
         okText="บันทึก"
         cancelText="ยกเลิก"
-        onOk={RewardFormModalHandleSubmit}
+        onOk={handleSubmit}
       >
         <Form layout="vertical">
           <Form.Item label="ชื่อรางวัล" required>
@@ -815,7 +747,7 @@ const AdminDashboard = ({
             </Form.Item>
 
             <Form.Item label="หมวดหมู่" name="Category">
-              <Select options={rewardCategories} placeholder="เลือกหมวดหมู่" />
+              <Select options={categories} placeholder="เลือกหมวดหมู่" />
             </Form.Item>
           </div>
 
@@ -937,178 +869,6 @@ const AdminDashboard = ({
     }
   };
 
-  // สำหรับ Modal เด็ก
-  const ChildFormModalHandleSubmit = async () => {
-    try {
-      const values = await form.validateFields();
-
-      if (editingItem) {
-        // แก้ไขเด็กที่มีอยู่
-        const updatedChildren = familyData.children.map((child) =>
-          child.Id === editingItem.Id
-            ? {
-                ...child,
-                ...values,
-                Age: parseInt(values.Age),
-                AvatarPath:
-                  values.AvatarPath || (values.Gender === "M" ? "👦" : "👧"),
-              }
-            : child
-        );
-        setFamilyData({ ...familyData, children: updatedChildren });
-      } else {
-        // เพิ่มเด็กใหม่
-        const newChild = {
-          Id: `C${Date.now()}`,
-          FamilyId: currentFamily.Id,
-          ...values,
-          Age: parseInt(values.Age),
-          AvatarPath:
-            values.AvatarPath || (values.Gender === "M" ? "👦" : "👧"),
-          currentPoints: 0,
-          CurrentPoints: 0,
-          IsActive: true,
-          CreatedAt: new Date().toISOString().split("T")[0],
-        };
-        setFamilyData({
-          ...familyData,
-          children: [...familyData.children, newChild],
-        });
-      }
-      setShowChildModal(false);
-      setEditingItem(null);
-      form.resetFields();
-      message.success(
-        editingItem ? "แก้ไขข้อมูลสำเร็จ!" : "เพิ่มเด็กใหม่สำเร็จ!"
-      );
-    } catch (error) {
-      console.error("Error saving child:", error);
-      message.error("เกิดข้อผิดพลาดในการบันทึก กรุณาลองใหม่");
-    }
-  };
-
-  // สำหรับ Modal พฤติกรรม
-  const BehaviorFormModalHandleSubmit = async () => {
-    if (!behaviorForm.Name || !behaviorForm.Points) {
-      alert("กรุณากรอกชื่อพฤติกรรมและคะแนน");
-      return;
-    }
-
-    try {
-      setLoading(true);
-
-      const formData = {
-        ...behaviorForm,
-        Points:
-          parseInt(behaviorForm.Points) *
-          (behaviorForm.Type === "Bad" ? -1 : 1),
-      };
-
-      if (editingItem) {
-        // Update existing behavior via API
-        const updatedBehavior = { ...editingItem, ...formData };
-        await api.updateBehavior(
-          editingItem.id || editingItem.Id,
-          updatedBehavior
-        );
-
-        setFamilyBehaviors(
-          familyBehaviors.map((behavior) =>
-            (behavior.id || behavior.Id) === (editingItem.id || editingItem.Id)
-              ? updatedBehavior
-              : behavior
-          )
-        );
-      } else {
-        // Create new behavior via API
-        const newBehavior = {
-          FamilyId: currentFamily.id || currentFamily.Id,
-          ...formData,
-          IsActive: true,
-        };
-
-        const createdBehavior = await api.createBehavior(newBehavior);
-
-        setFamilyBehaviors([
-          ...familyBehaviors,
-          createdBehavior || { ...newBehavior, Id: `B${Date.now()}` },
-        ]);
-      }
-    } catch (error) {
-      console.error("Error saving behavior:", error);
-      alert("เกิดข้อผิดพลาดในการบันทึก กรุณาลองใหม่");
-      return;
-    } finally {
-      setLoading(false);
-    }
-
-    setShowBehaviorModal(false);
-    setEditingItem(null);
-    setBehaviorForm({
-      Name: "",
-      Points: "",
-      Color: "#FF8CC8",
-      Category: "",
-      Type: "Good",
-      IsRepeatable: true,
-    });
-  };
-
-  // สำหรับ Modal รางวัล
-  const RewardFormModalHandleSubmit = async () => {
-    if (!rewardForm.Name || !rewardForm.Cost) {
-      alert("กรุณากรอกชื่อรางวัลและราคา");
-      return;
-    }
-
-    try {
-      setLoading(true);
-
-      const formData = {
-        ...rewardForm,
-        Cost: parseInt(rewardForm.Cost),
-      };
-
-      if (editingItem) {
-        // Update existing reward via API
-        const updatedReward = { ...editingItem, ...formData };
-        await api.updateReward(editingItem.id || editingItem.Id, updatedReward);
-
-        setFamilyRewards(
-          familyRewards.map((reward) =>
-            (reward.id || reward.Id) === (editingItem.id || editingItem.Id)
-              ? updatedReward
-              : reward
-          )
-        );
-      } else {
-        // Create new reward via API
-        const newReward = {
-          FamilyId: currentFamily.id || currentFamily.Id,
-          ...formData,
-          IsActive: true,
-        };
-
-        const createdReward = await api.createReward(newReward);
-
-        setFamilyRewards([
-          ...familyRewards,
-          createdReward || { ...newReward, Id: `R${Date.now()}` },
-        ]);
-      }
-    } catch (error) {
-      console.error("Error saving reward:", error);
-      alert("เกิดข้อผิดพลาดในการบันทึก กรุณาลองใหม่");
-      return;
-    } finally {
-      setLoading(false);
-    }
-
-    setShowRewardModal(false);
-    setEditingItem(null);
-    setRewardForm({ Name: "", Cost: "", Color: "#FFE4B5", Category: "" });
-  };
-
   return (
     <div style={{ maxWidth: 900, margin: "0 auto", padding: 24 }}>
       <Card>
@@ -1168,7 +928,7 @@ const AdminDashboard = ({
               <Button
                 type="dashed"
                 icon={<PlusOutlined />}
-                onClick={() => setShowChildModal(true)}
+                onClick={showChildModalHandler}
                 style={{ marginBottom: 16 }}
               >
                 เพิ่มเด็ก
@@ -1178,7 +938,7 @@ const AdminDashboard = ({
                 open={showChildModal}
                 onCancel={() => setShowChildModal(false)}
                 title="เพิ่ม/แก้ไขข้อมูลเด็ก"
-                onOk={ChildFormModalHandleSubmit}
+                onOk={handleChildSubmit}
                 okText="บันทึก"
                 cancelText="ยกเลิก"
               >
@@ -1232,7 +992,7 @@ const AdminDashboard = ({
                 open={showBehaviorModal}
                 onCancel={() => setShowBehaviorModal(false)}
                 title="เพิ่ม/แก้ไขพฤติกรรม"
-                onOk={BehaviorFormModalHandleSubmit}
+                onOk={handleSubmit}
                 okText="บันทึก"
                 cancelText="ยกเลิก"
               >
@@ -1281,7 +1041,7 @@ const AdminDashboard = ({
                   <div className="grid grid-cols-2 gap-4">
                     <Form.Item label="หมวดหมู่" name="Category">
                       <Select
-                        options={behaviorCategories}
+                        options={categories}
                         placeholder="เลือกหมวดหมู่"
                       />
                     </Form.Item>
@@ -1329,7 +1089,7 @@ const AdminDashboard = ({
                 open={showRewardModal}
                 onCancel={() => setShowRewardModal(false)}
                 title="เพิ่ม/แก้ไขรางวัล"
-                onOk={RewardFormModalHandleSubmit}
+                onOk={handleSubmit}
                 okText="บันทึก"
                 cancelText="ยกเลิก"
               >
@@ -1359,7 +1119,7 @@ const AdminDashboard = ({
 
                     <Form.Item label="หมวดหมู่" name="Category">
                       <Select
-                        options={rewardCategories}
+                        options={categories}
                         placeholder="เลือกหมวดหมู่"
                       />
                     </Form.Item>

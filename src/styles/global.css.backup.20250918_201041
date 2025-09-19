@@ -1,30 +1,25 @@
-/* CSS Imports - Must be at the top of the file */
-
-@import "./antd-custom.css";
-
 /* src/styles/global.css */
-@import "tailwindcss/base";
-@import "tailwindcss/components";
-@import "tailwindcss/utilities";
+@import 'tailwindcss/base';
+@import 'tailwindcss/components';
+@import 'tailwindcss/utilities';
 
 /* Thai Font - Sarabun from Google Fonts */
-@import url("https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap");
+@import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap');
 
 /* Kid-friendly Font */
-@import url("https://fonts.googleapis.com/css2?family=Comic+Neue:wght@300;400;700&display=swap");
+@import url('https://fonts.googleapis.com/css2?family=Comic+Neue:wght@300;400;700&display=swap');
 
 /* CSS Reset & Base Styles */
 @layer base {
   * {
     box-sizing: border-box;
   }
-
+  
   html {
-    font-family: "Sarabun", system-ui, -apple-system, BlinkMacSystemFont,
-      "Segoe UI", Roboto, sans-serif;
+    font-family: 'Sarabun', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     scroll-behavior: smooth;
   }
-
+  
   body {
     @apply antialiased;
     @apply text-gray-800;
@@ -33,21 +28,16 @@
   }
 
   /* Headings */
-  h1,
-  h2,
-  h3,
-  h4,
-  h5,
-  h6 {
+  h1, h2, h3, h4, h5, h6 {
     @apply font-semibold;
     @apply leading-tight;
   }
 
   .card-bg-glass {
-    background-color: rgba(255, 255, 255, 0.5);
-    /* Optional: backdrop blur for glass effect */
-    backdrop-filter: blur(6px);
-  }
+  background-color: rgba(255, 255, 255, 0.5);
+  /* Optional: backdrop blur for glass effect */
+  backdrop-filter: blur(6px);
+}
 
   /* Links */
   a {
@@ -57,7 +47,7 @@
 
   /* Form Elements */
   input[type="text"],
-  input[type="email"],
+  input[type="email"], 
   input[type="password"],
   input[type="number"],
   input[type="date"],
@@ -71,7 +61,7 @@
 
   input[type="text"]:focus,
   input[type="email"]:focus,
-  input[type="password"]:focus,
+  input[type="password"]:focus, 
   input[type="number"]:focus,
   input[type="date"]:focus,
   textarea:focus,
@@ -99,26 +89,26 @@
 @layer components {
   /* Font Families */
   .font-thai {
-    font-family: "Sarabun", sans-serif;
+    font-family: 'Sarabun', sans-serif;
   }
 
   .font-kid {
-    font-family: "Comic Neue", "Comic Sans MS", cursive, sans-serif;
+    font-family: 'Comic Neue', 'Comic Sans MS', cursive, sans-serif;
   }
 
   /* Custom Animations */
   .animate-float {
     animation: float 3s ease-in-out infinite;
   }
-
+  
   .animate-bounce-slow {
     animation: bounce 2s infinite;
   }
-
+  
   .animate-pulse-slow {
     animation: pulse 3s infinite;
   }
-
+  
   .animate-wiggle {
     animation: wiggle 1s ease-in-out infinite;
   }
@@ -140,19 +130,19 @@
     width: 6px;
     height: 6px;
   }
-
+  
   .custom-scrollbar::-webkit-scrollbar-track {
     @apply bg-gray-100;
     @apply rounded-full;
   }
-
+  
   .custom-scrollbar::-webkit-scrollbar-thumb {
     @apply bg-purple-300;
     @apply rounded-full;
     @apply border-2;
     @apply border-transparent;
   }
-
+  
   .custom-scrollbar::-webkit-scrollbar-thumb:hover {
     @apply bg-purple-400;
   }
@@ -162,7 +152,7 @@
     -ms-overflow-style: none;
     scrollbar-width: none;
   }
-
+  
   .scrollbar-hide::-webkit-scrollbar {
     display: none;
   }
@@ -183,15 +173,7 @@
   }
 
   .gradient-text-rainbow {
-    background: linear-gradient(
-      135deg,
-      #ff6b6b,
-      #4ecdc4,
-      #45b7d1,
-      #96ceb4,
-      #fcea2b,
-      #ff9ff3
-    );
+    background: linear-gradient(135deg, #ff6b6b, #4ecdc4, #45b7d1, #96ceb4, #fcea2b, #ff9ff3);
     -webkit-background-clip: text;
     background-clip: text;
     -webkit-text-fill-color: transparent;
@@ -360,77 +342,61 @@
 
   /* Pastel backgrounds */
   .bg-pastel-pink {
-    background-color: #ffe4e1;
+    background-color: #FFE4E1;
   }
 
   .bg-pastel-purple {
-    background-color: #e6e6fa;
+    background-color: #E6E6FA;
   }
 
   .bg-pastel-blue {
-    background-color: #e0e6ff;
+    background-color: #E0E6FF;
   }
 
   .bg-pastel-cyan {
-    background-color: #e0ffff;
+    background-color: #E0FFFF;
   }
 
   .bg-pastel-green {
-    background-color: #e6ffe6;
+    background-color: #E6FFE6;
   }
 
   .bg-pastel-yellow {
-    background-color: #fff8dc;
+    background-color: #FFF8DC;
   }
 
   .bg-pastel-orange {
-    background-color: #ffefd5;
+    background-color: #FFEFD5;
   }
 
   .bg-pastel-red {
-    background-color: #ffebee;
+    background-color: #FFEBEE;
   }
 
   /* Text colors for pastel theme */
   .text-pastel-pink {
-    color: #ff69b4;
+    color: #FF69B4;
   }
 
   .text-pastel-purple {
-    color: #9370db;
+    color: #9370DB;
   }
 
   .text-pastel-blue {
-    color: #6495ed;
+    color: #6495ED;
   }
 
   .text-pastel-green {
-    color: #98fb98;
+    color: #98FB98;
   }
 
   /* Rainbow gradient backgrounds */
   .bg-rainbow {
-    background: linear-gradient(
-      135deg,
-      #ff6b6b,
-      #4ecdc4,
-      #45b7d1,
-      #96ceb4,
-      #fcea2b,
-      #ff9ff3
-    );
+    background: linear-gradient(135deg, #ff6b6b, #4ecdc4, #45b7d1, #96ceb4, #fcea2b, #ff9ff3);
   }
 
   .bg-rainbow-pastel {
-    background: linear-gradient(
-      135deg,
-      #ffe4e1,
-      #e6e6fa,
-      #e0e6ff,
-      #e0ffff,
-      #e6ffe6,
-      #fff8dc
-    );
+    background: linear-gradient(135deg, #FFE4E1, #E6E6FA, #E0E6FF, #E0FFFF, #E6FFE6, #FFF8DC);
   }
 
   /* Child-friendly styles */
@@ -545,8 +511,7 @@
 
 /* Keyframes */
 @keyframes float {
-  0%,
-  100% {
+  0%, 100% {
     transform: translateY(0px);
   }
   50% {
@@ -555,8 +520,7 @@
 }
 
 @keyframes wiggle {
-  0%,
-  100% {
+  0%, 100% {
     transform: rotate(-3deg);
   }
   50% {
@@ -596,20 +560,13 @@
 }
 
 @keyframes rainbow {
-  0% {
-    background-position: 0% 50%;
-  }
-  50% {
-    background-position: 100% 50%;
-  }
-  100% {
-    background-position: 0% 50%;
-  }
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
 }
 
 @keyframes pulse-rainbow {
-  0%,
-  100% {
+  0%, 100% {
     background: linear-gradient(135deg, #ff6b6b, #4ecdc4);
   }
   25% {
@@ -629,12 +586,12 @@
     @apply bg-gray-900;
     @apply text-white;
   }
-
+  
   .dark-mode .card {
     @apply bg-gray-800;
     @apply border-gray-700;
   }
-
+  
   .dark-mode .input-primary {
     @apply bg-gray-800;
     @apply border-gray-600;
@@ -650,7 +607,7 @@
     @apply border-2;
     @apply border-white;
   }
-
+  
   .card {
     @apply border-2;
     @apply border-black;
@@ -667,7 +624,7 @@
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
-
+  
   .animate-float,
   .animate-bounce-slow,
   .animate-pulse-slow,
@@ -681,11 +638,11 @@
   .mobile-full {
     @apply w-full;
   }
-
+  
   .mobile-hidden {
     @apply hidden;
   }
-
+  
   .mobile-text-sm {
     @apply text-sm;
   }
@@ -704,13 +661,13 @@
     @apply text-black;
     @apply bg-white;
   }
-
+  
   .card {
     @apply shadow-none;
     @apply border;
     @apply border-black;
   }
-
+  
   .btn-primary,
   .btn-secondary {
     @apply bg-white;
@@ -720,31 +677,29 @@
   }
 }
 
+
 /* src/styles/global.css หรือ src/index.css */
 /* CSS สำหรับ MyKids Tracker - ใช้กับ design เดิม */
 
 /* Gradient Background */
 .gradient-background {
-  background: linear-gradient(
-    135deg,
-    #fce7f3 0%,
-    /* pink-100 */ #f3e8ff 25%,
-    /* purple-50 */ #ede9fe 50%,
-    /* violet-100 */ #e0e7ff 75%,
-    /* indigo-100 */ #dbeafe 100% /* blue-100 */
+  background: linear-gradient(135deg, 
+    #fce7f3 0%,   /* pink-100 */
+    #f3e8ff 25%,  /* purple-50 */
+    #ede9fe 50%,  /* violet-100 */
+    #e0e7ff 75%,  /* indigo-100 */
+    #dbeafe 100%  /* blue-100 */
   );
   min-height: 100vh;
 }
 
 /* Card Shadows */
 .card-shadow {
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1),
-    0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
 }
 
 .card-shadow-lg {
-  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1),
-    0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
 }
 
 /* Behavior Cards */
@@ -863,7 +818,7 @@ button:focus {
 
 /* Thai font support */
 .font-thai {
-  font-family: "Sarabun", "Noto Sans Thai", sans-serif;
+  font-family: 'Sarabun', 'Noto Sans Thai', sans-serif;
 }
 
 /* Utility classes for spacing */
@@ -913,3 +868,5 @@ button:focus {
     transform: scale(1);
   }
 }
+/* Ant Design Custom Styles */
+@import './antd-custom.css';
