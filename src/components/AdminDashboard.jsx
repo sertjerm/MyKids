@@ -1,4 +1,4 @@
-// src/components/AdminDashboard.jsx - Enhanced with CRUD features + API Integration
+// src/components/AdminDashboard.jsx
 import React, { useState, useEffect } from "react";
 import {
   Card,
@@ -13,6 +13,11 @@ import {
   Popconfirm,
   message,
   Spin,
+  Tabs,
+  Alert,
+  Row,
+  Col,
+  Space,
 } from "antd";
 import {
   PlusOutlined,
@@ -21,1359 +26,812 @@ import {
   UserOutlined,
   GiftOutlined,
   TrophyOutlined,
-  SmileOutlined,
+  LogoutOutlined,
 } from "@ant-design/icons";
+
+// Import existing components
+import BehaviorCard from "./BehaviorCard";
+import RewardCard from "./RewardCard";
+
+// Import real API service และ constants
 import api from "../services/api";
 import { behaviorCategories, rewardCategories } from "../constants/constants";
 
-// Enhanced Admin Dashboard with CRUD
-const AdminDashboard = ({
-  family,
-  onLogout = () => {},
-  onSelectChild = () => {},
+const AdminDashboard = ({ 
+  family, 
+  onLogout = () => {}, 
+  onSelectChild = () => {} 
 }) => {
   const [activeTab, setActiveTab] = useState("children");
   const [loading, setLoading] = useState(false);
   const [form] = Form.useForm();
 
-  // === RENDER FUNCTIONS ===
+  // Data States - เริ่มต้นด้วย children จาก family prop
+  const [children, setChildren] = useState(family?.children || []);
+  const [behaviors, setBehaviors] = useState([]);
+  const [rewards, setRewards] = useState([]);
+  const [error, setError] = useState(null);
 
-  // Render Child Card
-  const renderChildCard = (child) => {
-    const currentPoints = child.currentPoints || child.CurrentPoints || 0;
-
-    return (
-      <Card
-        key={child.Id || child.id}
-        hoverable
-        className="child-card mb-4"
-        onClick={() => onSelectChild && onSelectChild(child)}
-      >
-        <div className="flex items-center gap-4">
-          <Avatar
-            size={64}
-            src={child.AvatarPath}
-            style={{ backgroundColor: "#87d068" }}
-          >
-            {child.AvatarPath || (child.Name ? child.Name[0] : "?")}
-          </Avatar>
-
-          <div className="flex-1">
-            <h3 className="text-lg font-bold text-gray-800">{child.Name}</h3>
-            <p className="text-sm text-gray-600">อายุ {child.Age} ปี</p>
-            <div className="flex items-center gap-2 mt-2">
-              <span className="px-3 py-1 bg-gradient-to-r from-yellow-400 to-orange-400 text-white rounded-full text-sm font-bold">
-                ⭐ {currentPoints} คะแนน
-              </span>
-            </div>
-          </div>
-
-          <div className="flex flex-col gap-2">
-            <Button
-              size="small"
-              onClick={(e) => {
-                e.stopPropagation();
-                setEditingItem(child);
-                setShowChildModal(true);
-              }}
-            >
-              แก้ไข
-            </Button>
-            <Button
-              size="small"
-              danger
-              onClick={(e) => {
-                e.stopPropagation();
-                if (window.confirm(`ต้องการลบ ${child.Name} หรือไม่?`)) {
-                  const updatedChildren = familyData.children.filter(
-                    (c) => c.Id !== child.Id
-                  );
-                  setFamilyData({ ...familyData, children: updatedChildren });
-                }
-              }}
-            >
-              ลบ
-            </Button>
-          </div>
-        </div>
-      </Card>
-    );
-  };
-
-  // Render Behavior Card
-  const renderBehaviorCard = (behavior) => {
-    const isGood = behavior.Type === "Good";
-
-    return (
-      <Card
-        key={behavior.Id}
-        hoverable
-        className={`behavior-card mb-4 ${
-          isGood ? "behavior-good" : "behavior-bad"
-        }`}
-        style={{ borderColor: behavior.Color }}
-      >
-        <div className="flex items-center gap-4">
-          <div
-            className="w-8 h-8 rounded-full"
-            style={{ backgroundColor: behavior.Color }}
-          />
-
-          <div className="flex-1">
-            <h3 className="text-lg font-bold text-gray-800">{behavior.Name}</h3>
-            <p className="text-sm text-gray-600">{behavior.Category}</p>
-            <div className="flex items-center gap-2 mt-2">
-              <span
-                className={`px-3 py-1 rounded-full text-sm font-bold text-white ${
-                  isGood
-                    ? "bg-gradient-to-r from-green-400 to-emerald-500"
-                    : "bg-gradient-to-r from-red-400 to-pink-500"
-                }`}
-              >
-                {isGood ? "+" : ""}
-                {behavior.Points} คะแนน
-              </span>
-              {behavior.IsRepeatable && (
-                <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs">
-                  ทำซ้ำได้
-                </span>
-              )}
-            </div>
-          </div>
-
-          <div className="flex flex-col gap-2">
-            <Button
-              size="small"
-              onClick={() => {
-                setEditingItem(behavior);
-                setBehaviorForm(behavior);
-                setShowBehaviorModal(true);
-              }}
-            >
-              แก้ไข
-            </Button>
-            <Button
-              size="small"
-              danger
-              onClick={() => {
-                if (window.confirm(`ต้องการลบ ${behavior.Name} หรือไม่?`)) {
-                  const updatedBehaviors = familyBehaviors.filter(
-                    (b) => b.Id !== behavior.Id
-                  );
-                  setFamilyBehaviors(updatedBehaviors);
-                }
-              }}
-            >
-              ลบ
-            </Button>
-          </div>
-        </div>
-      </Card>
-    );
-  };
-
-  // Render Reward Card
-  const renderRewardCard = (reward) => {
-    return (
-      <Card
-        key={reward.Id}
-        hoverable
-        className="reward-card mb-4"
-        style={{ borderColor: reward.Color }}
-      >
-        <div className="flex items-center gap-4">
-          <div
-            className="w-8 h-8 rounded-full"
-            style={{ backgroundColor: reward.Color }}
-          />
-
-          <div className="flex-1">
-            <h3 className="text-lg font-bold text-gray-800">{reward.Name}</h3>
-            <p className="text-sm text-gray-600">{reward.Category}</p>
-            <div className="flex items-center gap-2 mt-2">
-              <span className="px-3 py-1 bg-gradient-to-r from-purple-400 to-pink-400 text-white rounded-full text-sm font-bold">
-                💎 {reward.Cost} คะแนน
-              </span>
-            </div>
-          </div>
-
-          <div className="flex flex-col gap-2">
-            <Button
-              size="small"
-              onClick={() => {
-                setEditingItem(reward);
-                setRewardForm(reward);
-                setShowRewardModal(true);
-              }}
-            >
-              แก้ไข
-            </Button>
-            <Button
-              size="small"
-              danger
-              onClick={() => {
-                if (window.confirm(`ต้องการลบ ${reward.Name} หรือไม่?`)) {
-                  const updatedRewards = familyRewards.filter(
-                    (r) => r.Id !== reward.Id
-                  );
-                  setFamilyRewards(updatedRewards);
-                }
-              }}
-            >
-              ลบ
-            </Button>
-          </div>
-        </div>
-      </Card>
-    );
-  };
-
-  // Ensure we have a valid family object
-  const currentFamily = family || mockFamilies[0];
-
-  // Data states - เริ่มต้นด้วย empty arrays
-  const [familyData, setFamilyData] = useState({
-    children: [],
-    totalPoints: 0,
-  });
-  const [familyBehaviors, setFamilyBehaviors] = useState([]);
-  const [familyRewards, setFamilyRewards] = useState([]);
-
-  // Modal states
+  // Modal States
   const [showChildModal, setShowChildModal] = useState(false);
   const [showBehaviorModal, setShowBehaviorModal] = useState(false);
   const [showRewardModal, setShowRewardModal] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
 
-  // Form states
-  const [childForm, setChildForm] = useState({
-    Name: "",
-    Age: "",
-    Gender: "M",
-    AvatarPath: "",
-  });
-  const [behaviorForm, setBehaviorForm] = useState({
-    Name: "",
-    Points: "",
-    Color: "#FF8CC8",
-    Category: "",
-    Type: "Good",
-    IsRepeatable: true,
-  });
-  const [rewardForm, setRewardForm] = useState({
-    Name: "",
-    Cost: "",
-    Color: "#FFE4B5",
-    Category: "",
-  });
-
-  // Get filtered data for current family (with safety checks)
-  const currentFamilyData = familyData.children.filter(
-    (child) =>
-      (child.familyId || child.FamilyId) ===
-        (currentFamily.id || currentFamily.Id) &&
-      child.isActive !== false &&
-      child.IsActive !== false
-  );
-  const currentFamilyBehaviors = familyBehaviors.filter(
-    (behavior) =>
-      (behavior.familyId || behavior.FamilyId) ===
-        (currentFamily.id || currentFamily.Id) &&
-      behavior.isActive !== false &&
-      behavior.IsActive !== false
-  );
-  const currentFamilyRewards = familyRewards.filter(
-    (reward) =>
-      (reward.familyId || reward.FamilyId) ===
-        (currentFamily.id || currentFamily.Id) &&
-      reward.isActive !== false &&
-      reward.IsActive !== false
-  );
-
+  // Load data on mount
   useEffect(() => {
-    if (currentFamily.id || currentFamily.Id) {
-      loadFamilyData();
+    console.log('AdminDashboard received family:', family);
+    
+    if (family?.id) {
+      // ใช้ children จาก family prop ถ้ามี ไม่ต้องเรียก API ใหม่
+      if (family.children && family.children.length > 0) {
+        setChildren(family.children);
+        console.log('Using children from family prop:', family.children);
+      }
+      
+      // โหลด behaviors และ rewards
+      loadAdditionalData();
     }
-  }, [currentFamily.id || currentFamily.Id]);
+  }, [family]);
+
+  const loadAdditionalData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      // โหลดเฉพาะ behaviors และ rewards
+      const [behaviorsData, rewardsData] = await Promise.all([
+        api.getBehaviors(family.id),
+        api.getRewards(family.id)
+      ]);
+
+      setBehaviors(behaviorsData || []);
+      setRewards(rewardsData || []);
+
+      console.log('Loaded behaviors:', behaviorsData);
+      console.log('Loaded rewards:', rewardsData);
+
+    } catch (error) {
+      console.error("Error loading additional data:", error);
+      setError("ไม่สามารถโหลดข้อมูลพฤติกรรมและรางวัลได้");
+      message.error("ไม่สามารถโหลดข้อมูลบางส่วนได้");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const loadFamilyData = async () => {
     try {
       setLoading(true);
-
-      // เรียก API จริงแทน mock data - ใช้ field name ที่ถูกต้อง
-      const familyId = currentFamily.id || currentFamily.Id;
-      const [children, behaviors, rewards] = await Promise.all([
-        api.getChildren(familyId),
-        api.getBehaviors(familyId),
-        api.getRewards(familyId),
+      setError(null);
+      
+      // รีโหลดข้อมูลใหม่ทั้งหมด
+      const [childrenData, behaviorsData, rewardsData] = await Promise.all([
+        api.getChildren(family.id),
+        api.getBehaviors(family.id),
+        api.getRewards(family.id)
       ]);
 
-      // ประมวลผลข้อมูลเด็กและคะแนน (ตามรูปแบบของเดิม)
-      const processedChildren = currentFamily.children || children || [];
-      const processedBehaviors = behaviors || [];
-      const processedRewards = rewards || [];
+      setChildren(childrenData || []);
+      setBehaviors(behaviorsData || []);
+      setRewards(rewardsData || []);
 
-      // คำนวณคะแนนรวมจากข้อมูลจริง
-      const totalPoints = processedChildren.reduce(
-        (sum, child) => sum + (child.currentPoints || child.CurrentPoints || 0),
-        0
-      );
-
-      setFamilyData({ children: processedChildren, totalPoints });
-      setFamilyBehaviors(processedBehaviors);
-      setFamilyRewards(processedRewards);
     } catch (error) {
       console.error("Error loading family data:", error);
-
-      // Fallback ใช้ข้อมูลที่มีจาก family prop (ตามรูปแบบของเดิม)
-      const fallbackChildren = currentFamily.children || [];
-      const fallbackTotalPoints = fallbackChildren.reduce(
-        (sum, child) => sum + (child.currentPoints || child.CurrentPoints || 0),
-        0
-      );
-
-      setFamilyData({
-        children: fallbackChildren,
-        totalPoints: fallbackTotalPoints,
-      });
-
-      // ใช้ mock data สำหรับ behaviors และ rewards
-      const familyId = currentFamily.id || currentFamily.Id;
-      setFamilyBehaviors(
-        mockBehaviors.filter(
-          (b) =>
-            (b.familyId || b.FamilyId) === familyId &&
-            b.isActive !== false &&
-            b.IsActive !== false
-        )
-      );
-      setFamilyRewards(
-        mockRewards.filter(
-          (r) =>
-            (r.familyId || r.FamilyId) === familyId &&
-            r.isActive !== false &&
-            r.IsActive !== false
-        )
-      );
+      setError("ไม่สามารถโหลดข้อมูลได้ กรุณาลองใหม่อีกครั้ง");
+      message.error("ไม่สามารถโหลดข้อมูลได้");
     } finally {
       setLoading(false);
     }
   };
 
-  // Family Form Modal
-  const FamilyFormModal = () => {
-    const handleSubmit = () => {
-      if (!familyForm.Name || !familyForm.Email) {
-        alert("กรุณากรอกชื่อครอบครัวและอีเมล");
-        return;
-      }
+  // Helper Functions
+  const getTotalFamilyPoints = () => {
+    return children.reduce((sum, child) => {
+      const points = child.currentPoints || 0;
+      return sum + points;
+    }, 0);
+  };
+
+  // Child CRUD Operations
+  const handleChildSubmit = async () => {
+    try {
+      const values = await form.validateFields();
+      setLoading(true);
+
+      const childData = {
+        ...values,
+        age: parseInt(values.age),
+        familyId: family.id,
+      };
 
       if (editingItem) {
-        setFamilies(
-          families.map((fam) =>
-            fam.Id === editingItem.Id ? { ...fam, ...familyForm } : fam
-          )
-        );
+        // Update existing child
+        await api.createChild({ ...childData, id: editingItem.id }); // API อาจต้องใช้ update method
+        message.success('แก้ไขข้อมูลเด็กสำเร็จ!');
       } else {
-        const newFamily = {
-          Id: `F${String(families.length + 1).padStart(3, "0")}`,
-          ...familyForm,
-          AvatarPath: familyForm.AvatarPath || "👨‍👩‍👧‍👦",
-          IsActive: true,
-          CreatedAt: new Date().toISOString().split("T")[0],
-        };
-        setFamilies([...families, newFamily]);
+        // Add new child
+        await api.createChild(childData);
+        message.success('เพิ่มเด็กใหม่สำเร็จ!');
       }
-      setShowFamilyModal(false);
+      
+      // Reload data
+      await loadFamilyData();
+      setShowChildModal(false);
       setEditingItem(null);
-      setFamilyForm({ Name: "", Email: "", Phone: "", AvatarPath: "" });
-    };
-
-    return (
-      <Modal
-        open={showFamilyModal}
-        onCancel={() => {
-          setShowFamilyModal(false);
-          setEditingItem(null);
-          setFamilyForm({ Name: "", Email: "", Phone: "", AvatarPath: "" });
-        }}
-        title={editingItem ? "แก้ไขข้อมูลครอบครัว" : "สร้างครอบครัวใหม่"}
-        okText="บันทึก"
-        cancelText="ยกเลิก"
-        onOk={handleChildSubmit}
-      >
-        <Form layout="vertical">
-          <Form.Item label="ชื่อครอบครัว" required>
-            <Input
-              value={familyForm.Name}
-              onChange={(e) =>
-                setFamilyForm({ ...familyForm, Name: e.target.value })
-              }
-              placeholder="กรุณากรอกชื่อครอบครัว"
-            />
-          </Form.Item>
-
-          <Form.Item label="อีเมล" required>
-            <Input
-              type="email"
-              value={familyForm.Email}
-              onChange={(e) =>
-                setFamilyForm({ ...familyForm, Email: e.target.value })
-              }
-              placeholder="example@email.com"
-            />
-          </Form.Item>
-
-          <Form.Item label="เบอร์โทรศัพท์">
-            <Input
-              type="tel"
-              value={familyForm.Phone}
-              onChange={(e) =>
-                setFamilyForm({ ...familyForm, Phone: e.target.value })
-              }
-              placeholder="081-234-5678"
-            />
-          </Form.Item>
-
-          <Form.Item label="Emoji ครอบครัว">
-            <Input
-              value={familyForm.AvatarPath}
-              onChange={(e) =>
-                setFamilyForm({ ...familyForm, AvatarPath: e.target.value })
-              }
-              placeholder="👨‍👩‍👧‍👦"
-            />
-          </Form.Item>
-        </Form>
-      </Modal>
-    );
+      form.resetFields();
+    } catch (error) {
+      console.error("Error saving child:", error);
+      message.error('เกิดข้อผิดพลาดในการบันทึก');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  // Child Form Modal
-  const ChildFormModal = () => {
-    const [form] = Form.useForm();
-
-    const handleSubmit = async () => {
-      try {
-        const values = await form.validateFields();
-
-        if (editingItem) {
-          // แก้ไขเด็กที่มีอยู่
-          const updatedChildren = familyData.children.map((child) =>
-            child.Id === editingItem.Id
-              ? {
-                  ...child,
-                  ...values,
-                  Age: parseInt(values.Age),
-                  AvatarPath:
-                    values.AvatarPath || (values.Gender === "M" ? "👦" : "👧"),
-                }
-              : child
-          );
-          setFamilyData({ ...familyData, children: updatedChildren });
-        } else {
-          // เพิ่มเด็กใหม่
-          const newChild = {
-            Id: `C${Date.now()}`,
-            FamilyId: currentFamily.Id,
-            ...values,
-            Age: parseInt(values.Age),
-            AvatarPath:
-              values.AvatarPath || (values.Gender === "M" ? "👦" : "👧"),
-            currentPoints: 0,
-            CurrentPoints: 0,
-            IsActive: true,
-            CreatedAt: new Date().toISOString().split("T")[0],
-          };
-          setFamilyData({
-            ...familyData,
-            children: [...familyData.children, newChild],
-          });
-        }
-        setShowChildModal(false);
-        setEditingItem(null);
-        form.resetFields();
-        message.success(
-          editingItem ? "แก้ไขข้อมูลสำเร็จ!" : "เพิ่มเด็กใหม่สำเร็จ!"
-        );
-      } catch (error) {
-        console.error("Error saving child:", error);
-        message.error("เกิดข้อผิดพลาดในการบันทึก กรุณาลองใหม่");
-      }
-    };
-
-    return (
-      <Modal
-        open={showChildModal}
-        onCancel={() => {
-          setShowChildModal(false);
-          setEditingItem(null);
-          setChildForm({ Name: "", Age: "", Gender: "M", AvatarPath: "" });
-        }}
-        title={editingItem ? "แก้ไขข้อมูลเด็ก" : "เพิ่มเด็กใหม่"}
-        okText="บันทึก"
-        cancelText="ยกเลิก"
-        onOk={ChildFormModalHandleSubmit}
-      >
-        <Form form={form} layout="vertical">
-          <Form.Item
-            label="ชื่อเด็ก"
-            name="Name"
-            rules={[{ required: true, message: "กรุณากรอกชื่อเด็ก" }]}
-          >
-            <Input placeholder="กรุณากรอกชื่อเด็ก" />
-          </Form.Item>
-
-          <div className="grid grid-cols-2 gap-4">
-            <Form.Item
-              label="อายุ"
-              name="Age"
-              rules={[{ required: true, message: "กรุณากรอกอายุ" }]}
-            >
-              <Input type="number" placeholder="อายุ" min="1" max="18" />
-            </Form.Item>
-
-            <Form.Item
-              label="เพศ"
-              name="Gender"
-              rules={[{ required: true, message: "เลือกเพศ" }]}
-            >
-              <Select
-                options={[
-                  { value: "M", label: "ชาย" },
-                  { value: "F", label: "หญิง" },
-                ]}
-                placeholder="เลือกเพศ"
-              />
-            </Form.Item>
-          </div>
-
-          <Form.Item label="Emoji เด็ก" name="AvatarPath">
-            <Input
-              placeholder={`เช่น ${
-                childForm.Gender === "M" ? "👦 หรือ 🧒" : "👧 หรือ 👶"
-              }`}
-            />
-          </Form.Item>
-        </Form>
-      </Modal>
-    );
+  const handleDeleteChild = async (child) => {
+    try {
+      setLoading(true);
+      // await api.deleteChild(child.id); // ปิดไว้ก่อนเพื่อไม่ให้ลบจริง
+      
+      // ลบจาก state แทน
+      setChildren(children.filter(c => c.id !== child.id));
+      message.success('ลบข้อมูลเด็กสำเร็จ!');
+    } catch (error) {
+      console.error("Error deleting child:", error);
+      message.error('เกิดข้อผิดพลาดในการลบข้อมูล');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  // Behavior Form Modal
-  const BehaviorFormModal = () => {
-    const handleSubmit = async () => {
-      if (!behaviorForm.Name || !behaviorForm.Points) {
-        alert("กรุณากรอกชื่อพฤติกรรมและคะแนน");
-        return;
+  // Behavior CRUD Operations
+  const handleBehaviorSubmit = async () => {
+    try {
+      const values = await form.validateFields();
+      setLoading(true);
+
+      const behaviorData = {
+        name: values.name,
+        points: parseInt(values.points) * (values.type === "Bad" ? -1 : 1),
+        type: values.type,
+        category: values.category,
+        color: values.color,
+        isRepeatable: values.isRepeatable,
+        familyId: family.id,
+      };
+
+      if (editingItem) {
+        // Update existing behavior
+        const newBehavior = { ...editingItem, ...behaviorData };
+        setBehaviors(behaviors.map(b => b.id === editingItem.id ? newBehavior : b));
+        message.success('แก้ไขพฤติกรรมสำเร็จ!');
+      } else {
+        // Add new behavior
+        const newBehavior = { ...behaviorData, id: `B${Date.now()}` };
+        setBehaviors([...behaviors, newBehavior]);
+        message.success('เพิ่มพฤติกรรมใหม่สำเร็จ!');
       }
-
-      try {
-        setLoading(true);
-
-        const formData = {
-          ...behaviorForm,
-          Points:
-            parseInt(behaviorForm.Points) *
-            (behaviorForm.Type === "Bad" ? -1 : 1),
-        };
-
-        if (editingItem) {
-          // Update existing behavior via API
-          const updatedBehavior = { ...editingItem, ...formData };
-          await api.updateBehavior(
-            editingItem.id || editingItem.Id,
-            updatedBehavior
-          );
-
-          setFamilyBehaviors(
-            familyBehaviors.map((behavior) =>
-              (behavior.id || behavior.Id) ===
-              (editingItem.id || editingItem.Id)
-                ? updatedBehavior
-                : behavior
-            )
-          );
-        } else {
-          // Create new behavior via API
-          const newBehavior = {
-            FamilyId: currentFamily.id || currentFamily.Id,
-            ...formData,
-            IsActive: true,
-          };
-
-          const createdBehavior = await api.createBehavior(newBehavior);
-
-          setFamilyBehaviors([
-            ...familyBehaviors,
-            createdBehavior || { ...newBehavior, Id: `B${Date.now()}` },
-          ]);
-        }
-      } catch (error) {
-        console.error("Error saving behavior:", error);
-        alert("เกิดข้อผิดพลาดในการบันทึก กรุณาลองใหม่");
-        return;
-      } finally {
-        setLoading(false);
-      }
-
+      
       setShowBehaviorModal(false);
       setEditingItem(null);
-      setBehaviorForm({
-        Name: "",
-        Points: "",
-        Color: "#FF8CC8",
-        Category: "",
-        Type: "Good",
-        IsRepeatable: true,
-      });
-    };
-
-    return (
-      <Modal
-        open={showBehaviorModal}
-        onCancel={() => {
-          setShowBehaviorModal(false);
-          setEditingItem(null);
-          setBehaviorForm({
-            Name: "",
-            Points: "",
-            Color: "#FF8CC8",
-            Category: "",
-            Type: "Good",
-            IsRepeatable: true,
-          });
-        }}
-        title={editingItem ? "แก้ไขพฤติกรรม" : "เพิ่มพฤติกรรมใหม่"}
-        okText="บันทึก"
-        cancelText="ยกเลิก"
-        onOk={BehaviorFormModalHandleSubmit}
-      >
-        <Form layout="vertical">
-          <Form.Item label="ชื่อพฤติกรรม" required>
-            <Input
-              value={behaviorForm.Name}
-              onChange={(e) =>
-                setBehaviorForm({ ...behaviorForm, Name: e.target.value })
-              }
-              placeholder="กรุณากรอกชื่อพฤติกรรม"
-            />
-          </Form.Item>
-
-          <div className="grid grid-cols-2 gap-4">
-            <Form.Item
-              label="ประเภท"
-              name="Type"
-              rules={[{ required: true, message: "เลือกประเภท" }]}
-            >
-              <Select
-                options={[
-                  { value: "Good", label: "พฤติกรรมดี" },
-                  { value: "Bad", label: "พฤติกรรมไม่ดี" },
-                ]}
-                placeholder="เลือกประเภท"
-              />
-            </Form.Item>
-
-            <Form.Item
-              label="คะแนน"
-              name="Points"
-              rules={[{ required: true, message: "กรุณากรอกคะแนน" }]}
-            >
-              <Input type="number" placeholder="กรอกจำนวนคะแนน" min="1" />
-            </Form.Item>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <Form.Item label="หมวดหมู่" name="Category">
-              <Select
-                options={behaviorCategories}
-                placeholder="เลือกหมวดหมู่"
-              />
-            </Form.Item>
-
-            <Form.Item label="สี" name="Color">
-              <Input type="color" placeholder="เลือกสี" />
-            </Form.Item>
-          </div>
-
-          <Form.Item label="">
-            <label className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                checked={behaviorForm.IsRepeatable}
-                onChange={(e) =>
-                  setBehaviorForm({
-                    ...behaviorForm,
-                    IsRepeatable: e.target.checked,
-                  })
-                }
-                className="rounded"
-              />
-              <span className="text-sm text-gray-700">สามารถทำซ้ำได้</span>
-            </label>
-          </Form.Item>
-        </Form>
-      </Modal>
-    );
-  };
-
-  // Reward Form Modal
-  const RewardFormModal = () => {
-    const handleSubmit = async () => {
-      if (!rewardForm.Name || !rewardForm.Cost) {
-        alert("กรุณากรอกชื่อรางวัลและราคา");
-        return;
-      }
-
-      try {
-        setLoading(true);
-
-        const formData = {
-          ...rewardForm,
-          Cost: parseInt(rewardForm.Cost),
-        };
-
-        if (editingItem) {
-          // Update existing reward via API
-          const updatedReward = { ...editingItem, ...formData };
-          await api.updateReward(
-            editingItem.id || editingItem.Id,
-            updatedReward
-          );
-
-          setFamilyRewards(
-            familyRewards.map((reward) =>
-              (reward.id || reward.Id) === (editingItem.id || editingItem.Id)
-                ? updatedReward
-                : reward
-            )
-          );
-        } else {
-          // Create new reward via API
-          const newReward = {
-            FamilyId: currentFamily.id || currentFamily.Id,
-            ...formData,
-            IsActive: true,
-          };
-
-          const createdReward = await api.createReward(newReward);
-
-          setFamilyRewards([
-            ...familyRewards,
-            createdReward || { ...newReward, Id: `R${Date.now()}` },
-          ]);
-        }
-      } catch (error) {
-        console.error("Error saving reward:", error);
-        alert("เกิดข้อผิดพลาดในการบันทึก กรุณาลองใหม่");
-        return;
-      } finally {
-        setLoading(false);
-      }
-
-      setShowRewardModal(false);
-      setEditingItem(null);
-      setRewardForm({ Name: "", Cost: "", Color: "#FFE4B5", Category: "" });
-    };
-
-    return (
-      <Modal
-        open={showRewardModal}
-        onCancel={() => {
-          setShowRewardModal(false);
-          setEditingItem(null);
-          setRewardForm({ Name: "", Cost: "", Color: "#FFE4B5", Category: "" });
-        }}
-        title={editingItem ? "แก้ไขรางวัล" : "เพิ่มรางวัลใหม่"}
-        okText="บันทึก"
-        cancelText="ยกเลิก"
-        onOk={RewardFormModalHandleSubmit}
-      >
-        <Form layout="vertical">
-          <Form.Item label="ชื่อรางวัล" required>
-            <Input
-              value={rewardForm.Name}
-              onChange={(e) =>
-                setRewardForm({ ...rewardForm, Name: e.target.value })
-              }
-              placeholder="กรุณากรอกชื่อรางวัล"
-            />
-          </Form.Item>
-
-          <div className="grid grid-cols-2 gap-4">
-            <Form.Item
-              label="ราคา (คะแนน)"
-              name="Cost"
-              rules={[{ required: true, message: "กรุณากรอกราคา" }]}
-            >
-              <Input
-                type="number"
-                placeholder="กรอกจำนวนคะแนนที่ใช้แลก"
-                min="1"
-              />
-            </Form.Item>
-
-            <Form.Item label="หมวดหมู่" name="Category">
-              <Select options={rewardCategories} placeholder="เลือกหมวดหมู่" />
-            </Form.Item>
-          </div>
-
-          <Form.Item label="สี" name="Color">
-            <Input type="color" placeholder="เลือกสี" />
-          </Form.Item>
-        </Form>
-      </Modal>
-    );
-  };
-
-  // Edit handlers
-  const handleEditChild = (child) => {
-    setEditingItem(child);
-    setChildForm({
-      Name: child.name || child.Name,
-      Age: (child.age || child.Age).toString(),
-      Gender: child.gender || child.Gender,
-      AvatarPath: child.avatarPath || child.AvatarPath || "",
-    });
-    setShowChildModal(true);
-  };
-
-  const handleEditBehavior = (behavior) => {
-    setEditingItem(behavior);
-    setBehaviorForm({
-      Name: behavior.name || behavior.Name,
-      Points: Math.abs(behavior.points || behavior.Points).toString(),
-      Color: behavior.color || behavior.Color,
-      Category: behavior.category || behavior.Category,
-      Type: behavior.type || behavior.Type,
-      IsRepeatable: behavior.isRepeatable || behavior.IsRepeatable,
-    });
-    setShowBehaviorModal(true);
-  };
-
-  const handleEditReward = (reward) => {
-    setEditingItem(reward);
-    setRewardForm({
-      Name: reward.name || reward.Name,
-      Cost: (reward.cost || reward.Cost).toString(),
-      Color: reward.color || reward.Color,
-      Category: reward.category || reward.Category,
-    });
-    setShowRewardModal(true);
-  };
-
-  // Delete handlers
-  const handleDeleteChild = async (child) => {
-    if (confirm(`ต้องการลบ ${child.name || child.Name} หรือไม่?`)) {
-      try {
-        setLoading(true);
-
-        // Soft delete via API
-        await api.deleteChild(child.id || child.Id);
-
-        const updatedChildren = familyData.children.map((c) =>
-          (c.id || c.Id) === (child.id || child.Id)
-            ? { ...c, IsActive: false, isActive: false }
-            : c
-        );
-        setFamilyData({ ...familyData, children: updatedChildren });
-      } catch (error) {
-        console.error("Error deleting child:", error);
-        alert("เกิดข้อผิดพลาดในการลบ กรุณาลองใหม่");
-      } finally {
-        setLoading(false);
-      }
+      form.resetFields();
+    } catch (error) {
+      console.error("Error saving behavior:", error);
+      message.error('เกิดข้อผิดพลาดในการบันทึก');
+    } finally {
+      setLoading(false);
     }
   };
 
   const handleDeleteBehavior = async (behavior) => {
-    if (
-      confirm(`ต้องการลบพฤติกรรม "${behavior.name || behavior.Name}" หรือไม่?`)
-    ) {
-      try {
-        setLoading(true);
+    try {
+      setLoading(true);
+      setBehaviors(behaviors.filter(b => b.id !== behavior.id));
+      message.success('ลบพฤติกรรมสำเร็จ!');
+    } catch (error) {
+      console.error("Error deleting behavior:", error);
+      message.error('เกิดข้อผิดพลาดในการลบ');
+    } finally {
+      setLoading(false);
+    }
+  };
 
-        // Soft delete via API
-        await api.deleteBehavior(behavior.id || behavior.Id);
+  // Reward CRUD Operations
+  const handleRewardSubmit = async () => {
+    try {
+      const values = await form.validateFields();
+      setLoading(true);
 
-        setFamilyBehaviors(
-          familyBehaviors.map((b) =>
-            (b.id || b.Id) === (behavior.id || behavior.Id)
-              ? { ...b, IsActive: false, isActive: false }
-              : b
-          )
-        );
-      } catch (error) {
-        console.error("Error deleting behavior:", error);
-        alert("เกิดข้อผิดพลาดในการลบ กรุณาลองใหม่");
-      } finally {
-        setLoading(false);
+      const rewardData = {
+        name: values.name,
+        cost: parseInt(values.cost),
+        category: values.category,
+        color: values.color,
+        familyId: family.id,
+      };
+
+      if (editingItem) {
+        // Update existing reward
+        const newReward = { ...editingItem, ...rewardData };
+        setRewards(rewards.map(r => r.id === editingItem.id ? newReward : r));
+        message.success('แก้ไขรางวัลสำเร็จ!');
+      } else {
+        // Add new reward
+        const newReward = { ...rewardData, id: `R${Date.now()}` };
+        setRewards([...rewards, newReward]);
+        message.success('เพิ่มรางวัลใหม่สำเร็จ!');
       }
+      
+      setShowRewardModal(false);
+      setEditingItem(null);
+      form.resetFields();
+    } catch (error) {
+      console.error("Error saving reward:", error);
+      message.error('เกิดข้อผิดพลาดในการบันทึก');
+    } finally {
+      setLoading(false);
     }
   };
 
   const handleDeleteReward = async (reward) => {
-    if (confirm(`ต้องการลบรางวัล "${reward.name || reward.Name}" หรือไม่?`)) {
-      try {
-        setLoading(true);
-
-        // Soft delete via API
-        await api.deleteReward(reward.id || reward.Id);
-
-        setFamilyRewards(
-          familyRewards.map((r) =>
-            (r.id || r.Id) === (reward.id || reward.Id)
-              ? { ...r, IsActive: false, isActive: false }
-              : r
-          )
-        );
-      } catch (error) {
-        console.error("Error deleting reward:", error);
-        alert("เกิดข้อผิดพลาดในการลบ กรุณาลองใหม่");
-      } finally {
-        setLoading(false);
-      }
-    }
-  };
-
-  // สำหรับ Modal เด็ก
-  const ChildFormModalHandleSubmit = async () => {
-    try {
-      const values = await form.validateFields();
-
-      if (editingItem) {
-        // แก้ไขเด็กที่มีอยู่
-        const updatedChildren = familyData.children.map((child) =>
-          child.Id === editingItem.Id
-            ? {
-                ...child,
-                ...values,
-                Age: parseInt(values.Age),
-                AvatarPath:
-                  values.AvatarPath || (values.Gender === "M" ? "👦" : "👧"),
-              }
-            : child
-        );
-        setFamilyData({ ...familyData, children: updatedChildren });
-      } else {
-        // เพิ่มเด็กใหม่
-        const newChild = {
-          Id: `C${Date.now()}`,
-          FamilyId: currentFamily.Id,
-          ...values,
-          Age: parseInt(values.Age),
-          AvatarPath:
-            values.AvatarPath || (values.Gender === "M" ? "👦" : "👧"),
-          currentPoints: 0,
-          CurrentPoints: 0,
-          IsActive: true,
-          CreatedAt: new Date().toISOString().split("T")[0],
-        };
-        setFamilyData({
-          ...familyData,
-          children: [...familyData.children, newChild],
-        });
-      }
-      setShowChildModal(false);
-      setEditingItem(null);
-      form.resetFields();
-      message.success(
-        editingItem ? "แก้ไขข้อมูลสำเร็จ!" : "เพิ่มเด็กใหม่สำเร็จ!"
-      );
-    } catch (error) {
-      console.error("Error saving child:", error);
-      message.error("เกิดข้อผิดพลาดในการบันทึก กรุณาลองใหม่");
-    }
-  };
-
-  // สำหรับ Modal พฤติกรรม
-  const BehaviorFormModalHandleSubmit = async () => {
-    if (!behaviorForm.Name || !behaviorForm.Points) {
-      alert("กรุณากรอกชื่อพฤติกรรมและคะแนน");
-      return;
-    }
-
     try {
       setLoading(true);
-
-      const formData = {
-        ...behaviorForm,
-        Points:
-          parseInt(behaviorForm.Points) *
-          (behaviorForm.Type === "Bad" ? -1 : 1),
-      };
-
-      if (editingItem) {
-        // Update existing behavior via API
-        const updatedBehavior = { ...editingItem, ...formData };
-        await api.updateBehavior(
-          editingItem.id || editingItem.Id,
-          updatedBehavior
-        );
-
-        setFamilyBehaviors(
-          familyBehaviors.map((behavior) =>
-            (behavior.id || behavior.Id) === (editingItem.id || editingItem.Id)
-              ? updatedBehavior
-              : behavior
-          )
-        );
-      } else {
-        // Create new behavior via API
-        const newBehavior = {
-          FamilyId: currentFamily.id || currentFamily.Id,
-          ...formData,
-          IsActive: true,
-        };
-
-        const createdBehavior = await api.createBehavior(newBehavior);
-
-        setFamilyBehaviors([
-          ...familyBehaviors,
-          createdBehavior || { ...newBehavior, Id: `B${Date.now()}` },
-        ]);
-      }
+      setRewards(rewards.filter(r => r.id !== reward.id));
+      message.success('ลบรางวัลสำเร็จ!');
     } catch (error) {
-      console.error("Error saving behavior:", error);
-      alert("เกิดข้อผิดพลาดในการบันทึก กรุณาลองใหม่");
-      return;
+      console.error("Error deleting reward:", error);
+      message.error('เกิดข้อผิดพลาดในการลบ');
     } finally {
       setLoading(false);
     }
-
-    setShowBehaviorModal(false);
-    setEditingItem(null);
-    setBehaviorForm({
-      Name: "",
-      Points: "",
-      Color: "#FF8CC8",
-      Category: "",
-      Type: "Good",
-      IsRepeatable: true,
-    });
   };
 
-  // สำหรับ Modal รางวัล
-  const RewardFormModalHandleSubmit = async () => {
-    if (!rewardForm.Name || !rewardForm.Cost) {
-      alert("กรุณากรอกชื่อรางวัลและราคา");
-      return;
-    }
+  // Render child card ใช้แบบเดิม (ไม่ใช่ Ant Design Card)
+  const renderChildCard = (child) => (
+    <div 
+      key={child.id}
+      className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-2xl p-6 border border-purple-100 hover:shadow-lg transition-all relative"
+    >
+      <div className="flex items-center gap-4">
+        {/* Avatar */}
+        <div className="flex-shrink-0">
+          <img 
+            src={child.avatarPath || `https://api.dicebear.com/7.x/avataaars/svg?seed=${child.name}`}
+            alt={child.name}
+            className="w-16 h-16 rounded-full border-4 border-white shadow-lg"
+            onError={(e) => {
+              e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(child.name)}&background=random`;
+            }}
+          />
+        </div>
 
-    try {
-      setLoading(true);
-
-      const formData = {
-        ...rewardForm,
-        Cost: parseInt(rewardForm.Cost),
-      };
-
-      if (editingItem) {
-        // Update existing reward via API
-        const updatedReward = { ...editingItem, ...formData };
-        await api.updateReward(editingItem.id || editingItem.Id, updatedReward);
-
-        setFamilyRewards(
-          familyRewards.map((reward) =>
-            (reward.id || reward.Id) === (editingItem.id || editingItem.Id)
-              ? updatedReward
-              : reward
-          )
-        );
-      } else {
-        // Create new reward via API
-        const newReward = {
-          FamilyId: currentFamily.id || currentFamily.Id,
-          ...formData,
-          IsActive: true,
-        };
-
-        const createdReward = await api.createReward(newReward);
-
-        setFamilyRewards([
-          ...familyRewards,
-          createdReward || { ...newReward, Id: `R${Date.now()}` },
-        ]);
-      }
-    } catch (error) {
-      console.error("Error saving reward:", error);
-      alert("เกิดข้อผิดพลาดในการบันทึก กรุณาลองใหม่");
-      return;
-    } finally {
-      setLoading(false);
-    }
-
-    setShowRewardModal(false);
-    setEditingItem(null);
-    setRewardForm({ Name: "", Cost: "", Color: "#FFE4B5", Category: "" });
-  };
-
-  return (
-    <div style={{ maxWidth: 900, margin: "0 auto", padding: 24 }}>
-      <Card>
-        <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-          <Avatar
-            size={64}
-            style={{ background: "#e6f7ff", color: "#1890ff", fontSize: 32 }}
-          >
-            {(family.AvatarPath || family.Name || "👨‍👩‍👧‍👦").toString().slice(0, 2)}
-          </Avatar>
-          <div>
-            <div style={{ fontWeight: "bold", fontSize: 20 }}>
-              {family.Name}
-            </div>
-            <div>{family.Email}</div>
-            <div>{family.Phone}</div>
+        <div className="flex-1">
+          <h3 className="text-lg font-bold text-gray-800">{child.name}</h3>
+          <p className="text-sm text-gray-600">อายุ {child.age} ปี</p>
+          <p className="text-sm text-gray-600">เพศ: {child.gender === 'M' ? 'ชาย' : 'หญิง'}</p>
+          <div className="flex items-center gap-2 mt-2">
+            <span className="px-3 py-1 bg-gradient-to-r from-yellow-400 to-orange-400 text-white rounded-full text-sm font-bold">
+              ⭐ {child.currentPoints || 0} คะแนน
+            </span>
           </div>
+        </div>
+
+        {/* Action buttons */}
+        <div className="flex flex-col gap-2">
           <Button
             type="primary"
-            style={{ marginLeft: "auto" }}
-            onClick={onLogout}
+            onClick={() => onSelectChild && onSelectChild(child)}
+            className="bg-gradient-to-r from-blue-500 to-purple-500"
           >
-            ออกจากระบบ
+            เข้าใช้งาน
           </Button>
+          <div className="flex gap-1">
+            <Button
+              size="small"
+              icon={<EditOutlined />}
+              onClick={() => {
+                setEditingItem(child);
+                form.setFieldsValue({
+                  name: child.name,
+                  age: child.age,
+                  gender: child.gender,
+                  avatarPath: child.avatarPath,
+                });
+                setShowChildModal(true);
+              }}
+            />
+            <Popconfirm
+              title="ต้องการลบข้อมูลเด็กนี้หรือไม่?"
+              onConfirm={() => handleDeleteChild(child)}
+              okText="ลบ"
+              cancelText="ยกเลิก"
+            >
+              <Button
+                size="small"
+                danger
+                icon={<DeleteOutlined />}
+              />
+            </Popconfirm>
+          </div>
         </div>
-      </Card>
-
-      <div style={{ margin: "24px 0" }}>
-        <Button.Group>
-          <Button
-            type={activeTab === "children" ? "primary" : "default"}
-            onClick={() => setActiveTab("children")}
-          >
-            เด็กในครอบครัว
-          </Button>
-          <Button
-            type={activeTab === "behaviors" ? "primary" : "default"}
-            onClick={() => setActiveTab("behaviors")}
-          >
-            พฤติกรรม
-          </Button>
-          <Button
-            type={activeTab === "rewards" ? "primary" : "default"}
-            onClick={() => setActiveTab("rewards")}
-          >
-            รางวัล
-          </Button>
-        </Button.Group>
       </div>
+    </div>
+  );
 
-      {loading ? (
-        <Spin size="large" />
-      ) : (
-        <>
-          {activeTab === "children" && (
-            <>
-              <Button
-                type="dashed"
-                icon={<PlusOutlined />}
-                onClick={() => setShowChildModal(true)}
-                style={{ marginBottom: 16 }}
-              >
-                เพิ่มเด็ก
-              </Button>
-              {currentFamilyData.map(renderChildCard)}
-              <Modal
-                open={showChildModal}
-                onCancel={() => setShowChildModal(false)}
-                title="เพิ่ม/แก้ไขข้อมูลเด็ก"
-                onOk={ChildFormModalHandleSubmit}
-                okText="บันทึก"
-                cancelText="ยกเลิก"
-              >
-                <Form form={form} layout="vertical">
-                  <Form.Item
-                    label="ชื่อ"
-                    name="Name"
-                    rules={[{ required: true, message: "กรุณากรอกชื่อ" }]}
-                  >
-                    <Input />
-                  </Form.Item>
-                  <Form.Item
-                    label="อายุ"
-                    name="Age"
-                    rules={[{ required: true, message: "กรุณากรอกอายุ" }]}
-                  >
-                    <Input type="number" />
-                  </Form.Item>
-                  <Form.Item
-                    label="เพศ"
-                    name="Gender"
-                    rules={[{ required: true, message: "เลือกเพศ" }]}
-                  >
-                    <Select
-                      options={[
-                        { value: "M", label: "ชาย" },
-                        { value: "F", label: "หญิง" },
-                      ]}
-                    />
-                  </Form.Item>
-                  <Form.Item label="Emoji เด็ก" name="AvatarPath">
-                    <Input />
-                  </Form.Item>
-                </Form>
-              </Modal>
-            </>
+  // Tab items
+  const tabItems = [
+    {
+      key: 'children',
+      label: `👶 เด็กในครอบครัว (${children.length})`,
+      children: (
+        <div>
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-xl font-bold text-gray-800">เด็กในครอบครัว</h2>
+            <Button
+              type="primary"
+              icon={<PlusOutlined />}
+              onClick={() => {
+                setEditingItem(null);
+                form.resetFields();
+                setShowChildModal(true);
+              }}
+              className="bg-gradient-to-r from-purple-500 to-pink-500"
+            >
+              เพิ่มเด็ก
+            </Button>
+          </div>
+          
+          <div className="grid gap-4">
+            {children.map(renderChildCard)}
+          </div>
+          
+          {children.length === 0 && (
+            <div className="text-center py-12 text-gray-500">
+              <UserOutlined style={{ fontSize: '48px', color: '#ccc' }} />
+              <h3>ยังไม่มีเด็กในครอบครัว</h3>
+              <p>คลิก "เพิ่มเด็ก" เพื่อเริ่มต้น</p>
+            </div>
           )}
-
-          {activeTab === "behaviors" && (
-            <>
-              <Button
-                type="dashed"
-                icon={<PlusOutlined />}
-                onClick={() => setShowBehaviorModal(true)}
-                style={{ marginBottom: 16 }}
-              >
-                เพิ่มพฤติกรรม
-              </Button>
-              {currentFamilyBehaviors.map(renderBehaviorCard)}
-              <Modal
-                open={showBehaviorModal}
-                onCancel={() => setShowBehaviorModal(false)}
-                title="เพิ่ม/แก้ไขพฤติกรรม"
-                onOk={BehaviorFormModalHandleSubmit}
-                okText="บันทึก"
-                cancelText="ยกเลิก"
-              >
-                <Form layout="vertical">
-                  <Form.Item label="ชื่อพฤติกรรม" required>
-                    <Input
-                      value={behaviorForm.Name}
-                      onChange={(e) =>
-                        setBehaviorForm({
-                          ...behaviorForm,
-                          Name: e.target.value,
-                        })
-                      }
-                      placeholder="กรุณากรอกชื่อพฤติกรรม"
+        </div>
+      ),
+    },
+    {
+      key: 'behaviors',
+      label: `🏆 พฤติกรรม (${behaviors.length})`,
+      children: (
+        <div>
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-xl font-bold text-gray-800">พฤติกรรม</h2>
+            <Button
+              type="primary"
+              icon={<PlusOutlined />}
+              onClick={() => {
+                setEditingItem(null);
+                form.resetFields();
+                setShowBehaviorModal(true);
+              }}
+              className="bg-gradient-to-r from-purple-500 to-pink-500"
+            >
+              เพิ่มพฤติกรรม
+            </Button>
+          </div>
+          
+          <div className="grid gap-4">
+            {behaviors.map(behavior => (
+              <div key={behavior.id} className="relative">
+                <BehaviorCard 
+                  behavior={behavior}
+                  disabled={false}
+                />
+                
+                {/* Action buttons overlay */}
+                <div className="absolute top-2 right-2 flex gap-1">
+                  <Button
+                    size="small"
+                    type="text"
+                    icon={<EditOutlined />}
+                    onClick={() => {
+                      setEditingItem(behavior);
+                      form.setFieldsValue({
+                        name: behavior.name || behavior.Name,
+                        points: Math.abs(behavior.points || behavior.Points),
+                        type: behavior.type || behavior.Type,
+                        category: behavior.category || behavior.Category,
+                        color: behavior.color || behavior.Color,
+                        isRepeatable: behavior.isRepeatable ?? behavior.IsRepeatable ?? true,
+                      });
+                      setShowBehaviorModal(true);
+                    }}
+                  />
+                  <Popconfirm
+                    title="ต้องการลบพฤติกรรมนี้หรือไม่?"
+                    onConfirm={() => handleDeleteBehavior(behavior)}
+                    okText="ลบ"
+                    cancelText="ยกเลิก"
+                  >
+                    <Button
+                      size="small"
+                      type="text"
+                      danger
+                      icon={<DeleteOutlined />}
                     />
-                  </Form.Item>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <Form.Item
-                      label="ประเภท"
-                      name="Type"
-                      rules={[{ required: true, message: "เลือกประเภท" }]}
-                    >
-                      <Select
-                        options={[
-                          { value: "Good", label: "พฤติกรรมดี" },
-                          { value: "Bad", label: "พฤติกรรมไม่ดี" },
-                        ]}
-                        placeholder="เลือกประเภท"
-                      />
-                    </Form.Item>
-
-                    <Form.Item
-                      label="คะแนน"
-                      name="Points"
-                      rules={[{ required: true, message: "กรุณากรอกคะแนน" }]}
-                    >
-                      <Input
-                        type="number"
-                        placeholder="กรอกจำนวนคะแนน"
-                        min="1"
-                      />
-                    </Form.Item>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <Form.Item label="หมวดหมู่" name="Category">
-                      <Select
-                        options={behaviorCategories}
-                        placeholder="เลือกหมวดหมู่"
-                      />
-                    </Form.Item>
-
-                    <Form.Item label="สี" name="Color">
-                      <Input type="color" placeholder="เลือกสี" />
-                    </Form.Item>
-                  </div>
-
-                  <Form.Item label="">
-                    <label className="flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        checked={behaviorForm.IsRepeatable}
-                        onChange={(e) =>
-                          setBehaviorForm({
-                            ...behaviorForm,
-                            IsRepeatable: e.target.checked,
-                          })
-                        }
-                        className="rounded"
-                      />
-                      <span className="text-sm text-gray-700">
-                        สามารถทำซ้ำได้
-                      </span>
-                    </label>
-                  </Form.Item>
-                </Form>
-              </Modal>
-            </>
+                  </Popconfirm>
+                </div>
+              </div>
+            ))}
+          </div>
+          
+          {behaviors.length === 0 && (
+            <div className="text-center py-12 text-gray-500">
+              <TrophyOutlined style={{ fontSize: '48px', color: '#ccc' }} />
+              <h3>ยังไม่มีพฤติกรรมที่กำหนด</h3>
+              <p>คลิก "เพิ่มพฤติกรรม" เพื่อเริ่มต้น</p>
+            </div>
           )}
-
-          {activeTab === "rewards" && (
-            <>
-              <Button
-                type="dashed"
-                icon={<PlusOutlined />}
-                onClick={() => setShowRewardModal(true)}
-                style={{ marginBottom: 16 }}
-              >
-                เพิ่มรางวัล
-              </Button>
-              {currentFamilyRewards.map(renderRewardCard)}
-              <Modal
-                open={showRewardModal}
-                onCancel={() => setShowRewardModal(false)}
-                title="เพิ่ม/แก้ไขรางวัล"
-                onOk={RewardFormModalHandleSubmit}
-                okText="บันทึก"
-                cancelText="ยกเลิก"
-              >
-                <Form layout="vertical">
-                  <Form.Item label="ชื่อรางวัล" required>
-                    <Input
-                      value={rewardForm.Name}
-                      onChange={(e) =>
-                        setRewardForm({ ...rewardForm, Name: e.target.value })
-                      }
-                      placeholder="กรุณากรอกชื่อรางวัล"
+        </div>
+      ),
+    },
+    {
+      key: 'rewards',
+      label: `🎁 รางวัล (${rewards.length})`,
+      children: (
+        <div>
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-xl font-bold text-gray-800">รางวัล</h2>
+            <Button
+              type="primary"
+              icon={<PlusOutlined />}
+              onClick={() => {
+                setEditingItem(null);
+                form.resetFields();
+                setShowRewardModal(true);
+              }}
+              className="bg-gradient-to-r from-purple-500 to-pink-500"
+            >
+              เพิ่มรางวัล
+            </Button>
+          </div>
+          
+          <div className="grid gap-4">
+            {rewards.map(reward => (
+              <div key={reward.id} className="relative">
+                <RewardCard 
+                  reward={reward}
+                  canAfford={true}
+                  disabled={false}
+                  onSelect={() => {}}
+                />
+                
+                {/* Action buttons overlay */}
+                <div className="absolute top-2 right-2 flex gap-1">
+                  <Button
+                    size="small"
+                    type="text"
+                    icon={<EditOutlined />}
+                    onClick={() => {
+                      setEditingItem(reward);
+                      form.setFieldsValue({
+                        name: reward.name || reward.Name,
+                        cost: reward.cost || reward.Cost,
+                        category: reward.category || reward.Category,
+                        color: reward.color || reward.Color,
+                      });
+                      setShowRewardModal(true);
+                    }}
+                  />
+                  <Popconfirm
+                    title="ต้องการลบรางวัลนี้หรือไม่?"
+                    onConfirm={() => handleDeleteReward(reward)}
+                    okText="ลบ"
+                    cancelText="ยกเลิก"
+                  >
+                    <Button
+                      size="small"
+                      type="text"
+                      danger
+                      icon={<DeleteOutlined />}
                     />
-                  </Form.Item>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <Form.Item
-                      label="ราคา (คะแนน)"
-                      name="Cost"
-                      rules={[{ required: true, message: "กรุณากรอกราคา" }]}
-                    >
-                      <Input
-                        type="number"
-                        placeholder="กรอกจำนวนคะแนนที่ใช้แลก"
-                        min="1"
-                      />
-                    </Form.Item>
-
-                    <Form.Item label="หมวดหมู่" name="Category">
-                      <Select
-                        options={rewardCategories}
-                        placeholder="เลือกหมวดหมู่"
-                      />
-                    </Form.Item>
-                  </div>
-
-                  <Form.Item label="สี" name="Color">
-                    <Input type="color" placeholder="เลือกสี" />
-                  </Form.Item>
-                </Form>
-              </Modal>
-            </>
+                  </Popconfirm>
+                </div>
+              </div>
+            ))}
+          </div>
+          
+          {rewards.length === 0 && (
+            <div className="text-center py-12 text-gray-500">
+              <GiftOutlined style={{ fontSize: '48px', color: '#ccc' }} />
+              <h3>ยังไม่มีรางวัลที่กำหนด</h3>
+              <p>คลิก "เพิ่มรางวัล" เพื่อเริ่มต้น</p>
+            </div>
           )}
-        </>
-      )}
+        </div>
+      ),
+    },
+  ];
+
+  if (loading && !children.length && !behaviors.length && !rewards.length) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-purple-100 to-pink-100">
+        <div className="text-center">
+          <Spin size="large" />
+          <p className="mt-4 text-lg text-gray-600">กำลังโหลดข้อมูล...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-purple-100 to-pink-100 p-6">
+      <div className="max-w-6xl mx-auto">
+        
+        {/* Error Alert */}
+        {error && (
+          <Alert
+            message="เกิดข้อผิดพลาด"
+            description={error}
+            type="error"
+            closable
+            onClose={() => setError(null)}
+            style={{ marginBottom: '16px' }}
+          />
+        )}
+
+        {/* Header - ใช้แบบเดิม */}
+        <div className="bg-white rounded-2xl shadow-xl p-6 mb-6">
+          <div className="flex items-center gap-4">
+            <div className="text-4xl">
+              {family?.avatarPath || '👨‍👩‍👧‍👦'}
+            </div>
+            <div className="flex-1">
+              <h1 className="text-2xl font-bold text-gray-800">{family?.name}</h1>
+              <p className="text-gray-600">{family?.email}</p>
+              <p className="text-gray-600">{family?.phone}</p>
+              <div className="mt-2">
+                <span className="px-4 py-2 bg-gradient-to-r from-yellow-400 to-orange-400 text-white rounded-full font-bold shadow-lg">
+                  ⭐ รวม {getTotalFamilyPoints()} คะแนน
+                </span>
+                <span className="ml-2 px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm">
+                  {children.length} เด็ก
+                </span>
+              </div>
+            </div>
+            <Button
+              danger
+              icon={<LogoutOutlined />}
+              onClick={onLogout}
+              className="flex items-center gap-2 px-6 py-3"
+            >
+              ออกจากระบบ
+            </Button>
+          </div>
+        </div>
+
+        {/* Content Tabs - ใช้ Ant Design */}
+        <div className="bg-white rounded-2xl shadow-xl p-6">
+          <Tabs 
+            activeKey={activeTab} 
+            onChange={setActiveTab} 
+            items={tabItems}
+            size="large"
+          />
+        </div>
+
+        {/* Loading Overlay */}
+        {loading && (
+          <div style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'rgba(0,0,0,0.3)',
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            zIndex: 9999,
+          }}>
+            <div className="bg-white rounded-2xl p-6 shadow-2xl">
+              <div className="text-center">
+                <Spin size="large" />
+                <p className="mt-4 text-gray-600">กำลังประมวลผล...</p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Modals */}
+        <Modal
+          title={editingItem ? "แก้ไขข้อมูลเด็ก" : "เพิ่มเด็กใหม่"}
+          open={showChildModal}
+          onOk={handleChildSubmit}
+          onCancel={() => {
+            setShowChildModal(false);
+            setEditingItem(null);
+            form.resetFields();
+          }}
+          okText="บันทึก"
+          cancelText="ยกเลิก"
+        >
+          <Form form={form} layout="vertical">
+            <Form.Item
+              name="name"
+              label="ชื่อเด็ก"
+              rules={[{ required: true, message: 'กรุณากรอกชื่อเด็ก!' }]}
+            >
+              <Input placeholder="กรุณากรอกชื่อเด็ก" />
+            </Form.Item>
+            
+            <Row gutter={16}>
+              <Col span={12}>
+                <Form.Item
+                  name="age"
+                  label="อายุ"
+                  rules={[{ required: true, message: 'กรุณากรอกอายุ!' }]}
+                >
+                  <Input type="number" placeholder="อายุ" min={1} max={18} />
+                </Form.Item>
+              </Col>
+              <Col span={12}>
+                <Form.Item
+                  name="gender"
+                  label="เพศ"
+                  rules={[{ required: true, message: 'กรุณาเลือกเพศ!' }]}
+                >
+                  <Select placeholder="เลือกเพศ">
+                    <Select.Option value="M">ชาย</Select.Option>
+                    <Select.Option value="F">หญิง</Select.Option>
+                  </Select>
+                </Form.Item>
+              </Col>
+            </Row>
+            
+            <Form.Item
+              name="avatarPath"
+              label="รูปโปรไฟล์"
+            >
+              <Input placeholder="URL รูปภาพ หรือ emoji หรือเว้นว่างสำหรับรูปเริ่มต้น" />
+            </Form.Item>
+          </Form>
+        </Modal>
+
+        {/* Behavior Modal */}
+        <Modal
+          title={editingItem ? "แก้ไขพฤติกรรม" : "เพิ่มพฤติกรรมใหม่"}
+          open={showBehaviorModal}
+          onOk={handleBehaviorSubmit}
+          onCancel={() => {
+            setShowBehaviorModal(false);
+            setEditingItem(null);
+            form.resetFields();
+          }}
+          okText="บันทึก"
+          cancelText="ยกเลิก"
+        >
+          <Form form={form} layout="vertical">
+            <Form.Item
+              name="name"
+              label="ชื่อพฤติกรรม"
+              rules={[{ required: true, message: 'กรุณากรอกชื่อพฤติกรรม!' }]}
+            >
+              <Input placeholder="กรุณากรอกชื่อพฤติกรรม" />
+            </Form.Item>
+            
+            <Row gutter={16}>
+              <Col span={12}>
+                <Form.Item
+                  name="type"
+                  label="ประเภท"
+                  rules={[{ required: true, message: 'กรุณาเลือกประเภท!' }]}
+                >
+                  <Select placeholder="เลือกประเภท">
+                    <Select.Option value="Good">พฤติกรรมดี</Select.Option>
+                    <Select.Option value="Bad">พฤติกรรมไม่ดี</Select.Option>
+                  </Select>
+                </Form.Item>
+              </Col>
+              <Col span={12}>
+                <Form.Item
+                  name="points"
+                  label="คะแนน"
+                  rules={[{ required: true, message: 'กรุณากรอกคะแนน!' }]}
+                >
+                  <Input type="number" placeholder="จำนวนคะแนน" min={1} />
+                </Form.Item>
+              </Col>
+            </Row>
+            
+            <Row gutter={16}>
+              <Col span={12}>
+                <Form.Item
+                  name="category"
+                  label="หมวดหมู่"
+                >
+                  <Select placeholder="เลือกหมวดหมู่">
+                    {behaviorCategories?.map(cat => (
+                      <Select.Option key={cat.value} value={cat.value}>
+                        {cat.label}
+                      </Select.Option>
+                    ))}
+                  </Select>
+                </Form.Item>
+              </Col>
+              <Col span={12}>
+                <Form.Item
+                  name="color"
+                  label="สี"
+                >
+                  <Input type="color" />
+                </Form.Item>
+              </Col>
+            </Row>
+            
+            <Form.Item
+              name="isRepeatable"
+              valuePropName="checked"
+            >
+              <input type="checkbox" style={{ marginRight: '8px' }} />
+              สามารถทำซ้ำได้
+            </Form.Item>
+          </Form>
+        </Modal>
+
+        {/* Reward Modal */}
+        <Modal
+          title={editingItem ? "แก้ไขรางวัล" : "เพิ่มรางวัลใหม่"}
+          open={showRewardModal}
+          onOk={handleRewardSubmit}
+          onCancel={() => {
+            setShowRewardModal(false);
+            setEditingItem(null);
+            form.resetFields();
+          }}
+          okText="บันทึก"
+          cancelText="ยกเลิก"
+        >
+          <Form form={form} layout="vertical">
+            <Form.Item
+              name="name"
+              label="ชื่อรางวัล"
+              rules={[{ required: true, message: 'กรุณากรอกชื่อรางวัล!' }]}
+            >
+              <Input placeholder="กรุณากรอกชื่อรางวัล" />
+            </Form.Item>
+            
+            <Row gutter={16}>
+              <Col span={12}>
+                <Form.Item
+                  name="cost"
+                  label="ราคา (คะแนน)"
+                  rules={[{ required: true, message: 'กรุณากรอกราคา!' }]}
+                >
+                  <Input type="number" placeholder="จำนวนคะแนนที่ใช้แลก" min={1} />
+                </Form.Item>
+              </Col>
+              <Col span={12}>
+                <Form.Item
+                  name="category"
+                  label="หมวดหมู่"
+                >
+                  <Select placeholder="เลือกหมวดหมู่">
+                    {rewardCategories?.map(cat => (
+                      <Select.Option key={cat.value} value={cat.value}>
+                        {cat.label}
+                      </Select.Option>
+                    ))}
+                  </Select>
+                </Form.Item>
+              </Col>
+            </Row>
+            
+            <Form.Item
+              name="color"
+              label="สี"
+            >
+              <Input type="color" />
+            </Form.Item>
+          </Form>
+        </Modal>
+      </div>
     </div>
   );
 };
