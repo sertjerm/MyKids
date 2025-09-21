@@ -1,41 +1,38 @@
 // src/components/AdminDashboard.jsx
 import React, { useState, useEffect } from "react";
-import {
-  Card,
-  Button,
-  Modal,
-  Form,
-  Input,
-  Select,
-  Avatar,
-  Badge,
-  Tag,
-  Popconfirm,
-  message,
-  Spin,
-  Tabs,
-  Alert,
-  Row,
-  Col,
-  Space,
-} from "antd";
-import {
-  PlusOutlined,
-  EditOutlined,
-  DeleteOutlined,
-  UserOutlined,
-  GiftOutlined,
-  TrophyOutlined,
-  LogoutOutlined,
-} from "@ant-design/icons";
+import { X, Plus, Edit, Trash2, Users, Trophy, Gift, LogOut, Star } from "lucide-react";
 
 // Import existing components
 import BehaviorCard from "./BehaviorCard";
 import RewardCard from "./RewardCard";
 
-// Import real API service และ constants
+// Import API service and constants
 import api from "../services/api";
 import { behaviorCategories, rewardCategories } from "../constants/constants";
+
+// Suppress ResizeObserver errors properly
+const suppressResizeObserverErrors = () => {
+  const resizeObserverErrorHandler = (e) => {
+    if (
+      e.message === 'ResizeObserver loop limit exceeded' ||
+      e.message === 'ResizeObserver loop completed with undelivered notifications.' ||
+      e.message.includes('ResizeObserver')
+    ) {
+      e.preventDefault();
+      e.stopPropagation();
+      return false;
+    }
+  };
+
+  window.addEventListener('error', resizeObserverErrorHandler, true);
+  window.addEventListener('unhandledrejection', resizeObserverErrorHandler, true);
+  
+  // Cleanup function
+  return () => {
+    window.removeEventListener('error', resizeObserverErrorHandler, true);
+    window.removeEventListener('unhandledrejection', resizeObserverErrorHandler, true);
+  };
+};
 
 const AdminDashboard = ({ 
   family, 
@@ -44,13 +41,12 @@ const AdminDashboard = ({
 }) => {
   const [activeTab, setActiveTab] = useState("children");
   const [loading, setLoading] = useState(false);
-  const [form] = Form.useForm();
+  const [error, setError] = useState(null);
 
-  // Data States - เริ่มต้นด้วย children จาก family prop
+  // Data States
   const [children, setChildren] = useState(family?.children || []);
   const [behaviors, setBehaviors] = useState([]);
   const [rewards, setRewards] = useState([]);
-  const [error, setError] = useState(null);
 
   // Modal States
   const [showChildModal, setShowChildModal] = useState(false);
@@ -58,18 +54,32 @@ const AdminDashboard = ({
   const [showRewardModal, setShowRewardModal] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
 
+  // Form States
+  const [childForm, setChildForm] = useState({
+    name: '', age: '', gender: '', avatarPath: ''
+  });
+  const [behaviorForm, setBehaviorForm] = useState({
+    name: '', points: '', type: 'Good', category: '', color: '#8B5CF6', isRepeatable: true
+  });
+  const [rewardForm, setRewardForm] = useState({
+    name: '', cost: '', category: '', color: '#F59E0B'
+  });
+
+  // Setup error suppression on mount
+  useEffect(() => {
+    const cleanup = suppressResizeObserverErrors();
+    return cleanup;
+  }, []);
+
   // Load data on mount
   useEffect(() => {
     console.log('AdminDashboard received family:', family);
     
     if (family?.id) {
-      // ใช้ children จาก family prop ถ้ามี ไม่ต้องเรียก API ใหม่
       if (family.children && family.children.length > 0) {
         setChildren(family.children);
         console.log('Using children from family prop:', family.children);
       }
-      
-      // โหลด behaviors และ rewards
       loadAdditionalData();
     }
   }, [family]);
@@ -79,7 +89,6 @@ const AdminDashboard = ({
       setLoading(true);
       setError(null);
       
-      // โหลดเฉพาะ behaviors และ rewards
       const [behaviorsData, rewardsData] = await Promise.all([
         api.getBehaviors(family.id),
         api.getRewards(family.id)
@@ -94,32 +103,6 @@ const AdminDashboard = ({
     } catch (error) {
       console.error("Error loading additional data:", error);
       setError("ไม่สามารถโหลดข้อมูลพฤติกรรมและรางวัลได้");
-      message.error("ไม่สามารถโหลดข้อมูลบางส่วนได้");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const loadFamilyData = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      
-      // รีโหลดข้อมูลใหม่ทั้งหมด
-      const [childrenData, behaviorsData, rewardsData] = await Promise.all([
-        api.getChildren(family.id),
-        api.getBehaviors(family.id),
-        api.getRewards(family.id)
-      ]);
-
-      setChildren(childrenData || []);
-      setBehaviors(behaviorsData || []);
-      setRewards(rewardsData || []);
-
-    } catch (error) {
-      console.error("Error loading family data:", error);
-      setError("ไม่สามารถโหลดข้อมูลได้ กรุณาลองใหม่อีกครั้ง");
-      message.error("ไม่สามารถโหลดข้อมูลได้");
     } finally {
       setLoading(false);
     }
@@ -133,703 +116,778 @@ const AdminDashboard = ({
     }, 0);
   };
 
-  // Child CRUD Operations
+  const resetForms = () => {
+    setChildForm({ name: '', age: '', gender: '', avatarPath: '' });
+    setBehaviorForm({ name: '', points: '', type: 'Good', category: '', color: '#8B5CF6', isRepeatable: true });
+    setRewardForm({ name: '', cost: '', category: '', color: '#F59E0B' });
+    setEditingItem(null);
+  };
+
+  // Modal Handlers
+  const handleOpenChildModal = (child = null) => {
+    if (child) {
+      setChildForm({
+        name: child.name || '',
+        age: child.age || '',
+        gender: child.gender || '',
+        avatarPath: child.avatarPath || ''
+      });
+      setEditingItem(child);
+    } else {
+      resetForms();
+    }
+    setShowChildModal(true);
+  };
+
+  const handleOpenBehaviorModal = (behavior = null) => {
+    if (behavior) {
+      setBehaviorForm({
+        name: behavior.name || behavior.Name || '',
+        points: Math.abs(behavior.points || behavior.Points || ''),
+        type: behavior.type || behavior.Type || 'Good',
+        category: behavior.category || behavior.Category || '',
+        color: behavior.color || behavior.Color || '#8B5CF6',
+        isRepeatable: behavior.isRepeatable ?? behavior.IsRepeatable ?? true
+      });
+      setEditingItem(behavior);
+    } else {
+      resetForms();
+    }
+    setShowBehaviorModal(true);
+  };
+
+  const handleOpenRewardModal = (reward = null) => {
+    if (reward) {
+      setRewardForm({
+        name: reward.name || reward.Name || '',
+        cost: reward.cost || reward.Cost || '',
+        category: reward.category || reward.Category || '',
+        color: reward.color || reward.Color || '#F59E0B'
+      });
+      setEditingItem(reward);
+    } else {
+      resetForms();
+    }
+    setShowRewardModal(true);
+  };
+
+  // CRUD Operations
   const handleChildSubmit = async () => {
     try {
-      const values = await form.validateFields();
-      setLoading(true);
+      if (!childForm.name || !childForm.age || !childForm.gender) {
+        alert('กรุณากรอกข้อมูลให้ครบถ้วน');
+        return;
+      }
 
+      setLoading(true);
       const childData = {
-        ...values,
-        age: parseInt(values.age),
+        ...childForm,
+        age: parseInt(childForm.age),
         familyId: family.id,
       };
 
       if (editingItem) {
-        // Update existing child
-        await api.createChild({ ...childData, id: editingItem.id }); // API อาจต้องใช้ update method
-        message.success('แก้ไขข้อมูลเด็กสำเร็จ!');
+        const updatedChild = { ...editingItem, ...childData };
+        setChildren(children.map(c => c.id === editingItem.id ? updatedChild : c));
+        alert('แก้ไขข้อมูลเด็กสำเร็จ!');
       } else {
-        // Add new child
-        await api.createChild(childData);
-        message.success('เพิ่มเด็กใหม่สำเร็จ!');
+        const newChild = { ...childData, id: `C${Date.now()}`, currentPoints: 0 };
+        setChildren([...children, newChild]);
+        alert('เพิ่มเด็กใหม่สำเร็จ!');
       }
       
-      // Reload data
-      await loadFamilyData();
       setShowChildModal(false);
-      setEditingItem(null);
-      form.resetFields();
+      resetForms();
     } catch (error) {
       console.error("Error saving child:", error);
-      message.error('เกิดข้อผิดพลาดในการบันทึก');
+      alert('เกิดข้อผิดพลาดในการบันทึก');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleDeleteChild = async (child) => {
-    try {
-      setLoading(true);
-      // await api.deleteChild(child.id); // ปิดไว้ก่อนเพื่อไม่ให้ลบจริง
-      
-      // ลบจาก state แทน
-      setChildren(children.filter(c => c.id !== child.id));
-      message.success('ลบข้อมูลเด็กสำเร็จ!');
-    } catch (error) {
-      console.error("Error deleting child:", error);
-      message.error('เกิดข้อผิดพลาดในการลบข้อมูล');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Behavior CRUD Operations
   const handleBehaviorSubmit = async () => {
     try {
-      const values = await form.validateFields();
-      setLoading(true);
+      if (!behaviorForm.name || !behaviorForm.points) {
+        alert('กรุณากรอกข้อมูลให้ครบถ้วน');
+        return;
+      }
 
+      setLoading(true);
       const behaviorData = {
-        name: values.name,
-        points: parseInt(values.points) * (values.type === "Bad" ? -1 : 1),
-        type: values.type,
-        category: values.category,
-        color: values.color,
-        isRepeatable: values.isRepeatable,
+        name: behaviorForm.name,
+        points: parseInt(behaviorForm.points) * (behaviorForm.type === "Bad" ? -1 : 1),
+        type: behaviorForm.type,
+        category: behaviorForm.category,
+        color: behaviorForm.color,
+        isRepeatable: behaviorForm.isRepeatable,
         familyId: family.id,
       };
 
       if (editingItem) {
-        // Update existing behavior
-        const newBehavior = { ...editingItem, ...behaviorData };
-        setBehaviors(behaviors.map(b => b.id === editingItem.id ? newBehavior : b));
-        message.success('แก้ไขพฤติกรรมสำเร็จ!');
+        const updatedBehavior = { ...editingItem, ...behaviorData };
+        setBehaviors(behaviors.map(b => b.id === editingItem.id ? updatedBehavior : b));
+        alert('แก้ไขพฤติกรรมสำเร็จ!');
       } else {
-        // Add new behavior
         const newBehavior = { ...behaviorData, id: `B${Date.now()}` };
         setBehaviors([...behaviors, newBehavior]);
-        message.success('เพิ่มพฤติกรรมใหม่สำเร็จ!');
+        alert('เพิ่มพฤติกรรมใหม่สำเร็จ!');
       }
       
       setShowBehaviorModal(false);
-      setEditingItem(null);
-      form.resetFields();
+      resetForms();
     } catch (error) {
       console.error("Error saving behavior:", error);
-      message.error('เกิดข้อผิดพลาดในการบันทึก');
+      alert('เกิดข้อผิดพลาดในการบันทึก');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleDeleteBehavior = async (behavior) => {
-    try {
-      setLoading(true);
-      setBehaviors(behaviors.filter(b => b.id !== behavior.id));
-      message.success('ลบพฤติกรรมสำเร็จ!');
-    } catch (error) {
-      console.error("Error deleting behavior:", error);
-      message.error('เกิดข้อผิดพลาดในการลบ');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Reward CRUD Operations
   const handleRewardSubmit = async () => {
     try {
-      const values = await form.validateFields();
-      setLoading(true);
+      if (!rewardForm.name || !rewardForm.cost) {
+        alert('กรุณากรอกข้อมูลให้ครบถ้วน');
+        return;
+      }
 
+      setLoading(true);
       const rewardData = {
-        name: values.name,
-        cost: parseInt(values.cost),
-        category: values.category,
-        color: values.color,
+        name: rewardForm.name,
+        cost: parseInt(rewardForm.cost),
+        category: rewardForm.category,
+        color: rewardForm.color,
         familyId: family.id,
       };
 
       if (editingItem) {
-        // Update existing reward
-        const newReward = { ...editingItem, ...rewardData };
-        setRewards(rewards.map(r => r.id === editingItem.id ? newReward : r));
-        message.success('แก้ไขรางวัลสำเร็จ!');
+        const updatedReward = { ...editingItem, ...rewardData };
+        setRewards(rewards.map(r => r.id === editingItem.id ? updatedReward : r));
+        alert('แก้ไขรางวัลสำเร็จ!');
       } else {
-        // Add new reward
         const newReward = { ...rewardData, id: `R${Date.now()}` };
         setRewards([...rewards, newReward]);
-        message.success('เพิ่มรางวัลใหม่สำเร็จ!');
+        alert('เพิ่มรางวัลใหม่สำเร็จ!');
       }
       
       setShowRewardModal(false);
-      setEditingItem(null);
-      form.resetFields();
+      resetForms();
     } catch (error) {
       console.error("Error saving reward:", error);
-      message.error('เกิดข้อผิดพลาดในการบันทึก');
+      alert('เกิดข้อผิดพลาดในการบันทึก');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleDeleteReward = async (reward) => {
-    try {
-      setLoading(true);
-      setRewards(rewards.filter(r => r.id !== reward.id));
-      message.success('ลบรางวัลสำเร็จ!');
-    } catch (error) {
-      console.error("Error deleting reward:", error);
-      message.error('เกิดข้อผิดพลาดในการลบ');
-    } finally {
-      setLoading(false);
+  const handleDelete = (type, item) => {
+    if (window.confirm(`ต้องการลบ${type}นี้หรือไม่?`)) {
+      if (type === 'เด็ก') {
+        setChildren(children.filter(c => c.id !== item.id));
+      } else if (type === 'พฤติกรรม') {
+        setBehaviors(behaviors.filter(b => b.id !== item.id));
+      } else if (type === 'รางวัล') {
+        setRewards(rewards.filter(r => r.id !== item.id));
+      }
+      alert(`ลบ${type}สำเร็จ!`);
     }
   };
 
-  // Render child card ใช้แบบเดิม (ไม่ใช่ Ant Design Card)
+  // Render child card with center alignment
   const renderChildCard = (child) => (
     <div 
       key={child.id}
-      className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-2xl p-6 border border-purple-100 hover:shadow-lg transition-all relative"
+      className="bg-white/70 backdrop-blur-md rounded-2xl p-6 border border-purple-100 hover:shadow-lg transition-all duration-300 relative"
     >
-      <div className="flex items-center gap-4">
-        {/* Avatar */}
-        <div className="flex-shrink-0">
+      <div className="flex flex-col items-center text-center space-y-4">
+        {/* Avatar - Center */}
+        <div className="relative">
           <img 
             src={child.avatarPath || `https://api.dicebear.com/7.x/avataaars/svg?seed=${child.name}`}
             alt={child.name}
-            className="w-16 h-16 rounded-full border-4 border-white shadow-lg"
+            className="w-20 h-20 rounded-full border-4 border-white shadow-lg"
             onError={(e) => {
               e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(child.name)}&background=random`;
             }}
           />
         </div>
 
-        <div className="flex-1">
-          <h3 className="text-lg font-bold text-gray-800">{child.name}</h3>
-          <p className="text-sm text-gray-600">อายุ {child.age} ปี</p>
-          <p className="text-sm text-gray-600">เพศ: {child.gender === 'M' ? 'ชาย' : 'หญิง'}</p>
-          <div className="flex items-center gap-2 mt-2">
-            <span className="px-3 py-1 bg-gradient-to-r from-yellow-400 to-orange-400 text-white rounded-full text-sm font-bold">
-              ⭐ {child.currentPoints || 0} คะแนน
-            </span>
+        {/* Info - Center */}
+        <div className="space-y-2">
+          <h3 className="text-xl font-bold text-gray-800">{child.name}</h3>
+          <div className="space-y-1">
+            <p className="text-sm text-gray-600">อายุ {child.age} ปี</p>
+            <p className="text-sm text-gray-600">เพศ: {child.gender === 'M' ? 'ชาย' : 'หญิง'}</p>
+          </div>
+          <div className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-yellow-400 to-orange-400 text-white rounded-full text-sm font-bold shadow-lg">
+            <Star className="w-4 h-4" />
+            {child.currentPoints || 0} คะแนน
           </div>
         </div>
 
-        {/* Action buttons */}
-        <div className="flex flex-col gap-2">
-          <Button
-            type="primary"
+        {/* Action buttons - Center */}
+        <div className="flex flex-col sm:flex-row gap-3 w-full max-w-xs">
+          <button
             onClick={() => onSelectChild && onSelectChild(child)}
-            className="bg-gradient-to-r from-blue-500 to-purple-500"
+            className="flex-1 bg-gradient-to-r from-blue-500 to-purple-500 text-white px-4 py-2 rounded-lg hover:shadow-md transition-all font-medium"
           >
             เข้าใช้งาน
-          </Button>
-          <div className="flex gap-1">
-            <Button
-              size="small"
-              icon={<EditOutlined />}
-              onClick={() => {
-                setEditingItem(child);
-                form.setFieldsValue({
-                  name: child.name,
-                  age: child.age,
-                  gender: child.gender,
-                  avatarPath: child.avatarPath,
-                });
-                setShowChildModal(true);
-              }}
-            />
-            <Popconfirm
-              title="ต้องการลบข้อมูลเด็กนี้หรือไม่?"
-              onConfirm={() => handleDeleteChild(child)}
-              okText="ลบ"
-              cancelText="ยกเลิก"
+          </button>
+          <div className="flex gap-2 justify-center">
+            <button
+              onClick={() => handleOpenChildModal(child)}
+              className="p-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
             >
-              <Button
-                size="small"
-                danger
-                icon={<DeleteOutlined />}
-              />
-            </Popconfirm>
+              <Edit className="w-4 h-4 text-gray-600" />
+            </button>
+            <button
+              onClick={() => handleDelete('เด็ก', child)}
+              className="p-2 bg-red-50 hover:bg-red-100 rounded-lg transition-colors"
+            >
+              <Trash2 className="w-4 h-4 text-red-500" />
+            </button>
           </div>
         </div>
       </div>
     </div>
   );
 
-  // Tab items
-  const tabItems = [
-    {
-      key: 'children',
-      label: `👶 เด็กในครอบครัว (${children.length})`,
-      children: (
-        <div>
-          <div className="flex justify-between items-center mb-6">
-            <h2 className="text-xl font-bold text-gray-800">เด็กในครอบครัว</h2>
-            <Button
-              type="primary"
-              icon={<PlusOutlined />}
-              onClick={() => {
-                setEditingItem(null);
-                form.resetFields();
-                setShowChildModal(true);
-              }}
-              className="bg-gradient-to-r from-purple-500 to-pink-500"
-            >
-              เพิ่มเด็ก
-            </Button>
-          </div>
-          
-          <div className="grid gap-4">
-            {children.map(renderChildCard)}
-          </div>
-          
-          {children.length === 0 && (
-            <div className="text-center py-12 text-gray-500">
-              <UserOutlined style={{ fontSize: '48px', color: '#ccc' }} />
-              <h3>ยังไม่มีเด็กในครอบครัว</h3>
-              <p>คลิก "เพิ่มเด็ก" เพื่อเริ่มต้น</p>
-            </div>
-          )}
-        </div>
-      ),
-    },
-    {
-      key: 'behaviors',
-      label: `🏆 พฤติกรรม (${behaviors.length})`,
-      children: (
-        <div>
-          <div className="flex justify-between items-center mb-6">
-            <h2 className="text-xl font-bold text-gray-800">พฤติกรรม</h2>
-            <Button
-              type="primary"
-              icon={<PlusOutlined />}
-              onClick={() => {
-                setEditingItem(null);
-                form.resetFields();
-                setShowBehaviorModal(true);
-              }}
-              className="bg-gradient-to-r from-purple-500 to-pink-500"
-            >
-              เพิ่มพฤติกรรม
-            </Button>
-          </div>
-          
-          <div className="grid gap-4">
-            {behaviors.map(behavior => (
-              <div key={behavior.id} className="relative">
-                <BehaviorCard 
-                  behavior={behavior}
-                  disabled={false}
-                />
-                
-                {/* Action buttons overlay */}
-                <div className="absolute top-2 right-2 flex gap-1">
-                  <Button
-                    size="small"
-                    type="text"
-                    icon={<EditOutlined />}
-                    onClick={() => {
-                      setEditingItem(behavior);
-                      form.setFieldsValue({
-                        name: behavior.name || behavior.Name,
-                        points: Math.abs(behavior.points || behavior.Points),
-                        type: behavior.type || behavior.Type,
-                        category: behavior.category || behavior.Category,
-                        color: behavior.color || behavior.Color,
-                        isRepeatable: behavior.isRepeatable ?? behavior.IsRepeatable ?? true,
-                      });
-                      setShowBehaviorModal(true);
-                    }}
-                  />
-                  <Popconfirm
-                    title="ต้องการลบพฤติกรรมนี้หรือไม่?"
-                    onConfirm={() => handleDeleteBehavior(behavior)}
-                    okText="ลบ"
-                    cancelText="ยกเลิก"
-                  >
-                    <Button
-                      size="small"
-                      type="text"
-                      danger
-                      icon={<DeleteOutlined />}
-                    />
-                  </Popconfirm>
-                </div>
+  // Render behavior card with vibrant colors
+  const renderBehaviorCard = (behavior) => {
+    const isGood = (behavior.type || behavior.Type) === "Good";
+    const points = behavior.points || behavior.Points;
+    const name = behavior.name || behavior.Name;
+    const category = behavior.category || behavior.Category;
+    const color = behavior.color || behavior.Color;
+    const isRepeatable = behavior.isRepeatable ?? behavior.IsRepeatable ?? true;
+
+    return (
+      <div key={behavior.id} className="relative">
+        <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 border-2 border-gray-100 hover:shadow-lg transition-all duration-300 hover:scale-[1.02]">
+          <div className="flex items-center gap-4">
+            {/* Color indicator */}
+            <div
+              className="w-6 h-6 rounded-full flex-shrink-0 shadow-md"
+              style={{ backgroundColor: color || (isGood ? '#10B981' : '#EF4444') }}
+            />
+
+            {/* Content */}
+            <div className="flex-1 min-w-0">
+              <div className="flex flex-wrap items-center gap-2 mb-2">
+                <h3 className="text-lg font-bold text-gray-800">{name}</h3>
+                {category && (
+                  <span className="px-2 py-1 text-xs bg-gray-100 text-gray-600 rounded-full">
+                    {category}
+                  </span>
+                )}
               </div>
-            ))}
-          </div>
-          
-          {behaviors.length === 0 && (
-            <div className="text-center py-12 text-gray-500">
-              <TrophyOutlined style={{ fontSize: '48px', color: '#ccc' }} />
-              <h3>ยังไม่มีพฤติกรรมที่กำหนด</h3>
-              <p>คลิก "เพิ่มพฤติกรรม" เพื่อเริ่มต้น</p>
-            </div>
-          )}
-        </div>
-      ),
-    },
-    {
-      key: 'rewards',
-      label: `🎁 รางวัล (${rewards.length})`,
-      children: (
-        <div>
-          <div className="flex justify-between items-center mb-6">
-            <h2 className="text-xl font-bold text-gray-800">รางวัล</h2>
-            <Button
-              type="primary"
-              icon={<PlusOutlined />}
-              onClick={() => {
-                setEditingItem(null);
-                form.resetFields();
-                setShowRewardModal(true);
-              }}
-              className="bg-gradient-to-r from-purple-500 to-pink-500"
-            >
-              เพิ่มรางวัล
-            </Button>
-          </div>
-          
-          <div className="grid gap-4">
-            {rewards.map(reward => (
-              <div key={reward.id} className="relative">
-                <RewardCard 
-                  reward={reward}
-                  canAfford={true}
-                  disabled={false}
-                  onSelect={() => {}}
-                />
-                
-                {/* Action buttons overlay */}
-                <div className="absolute top-2 right-2 flex gap-1">
-                  <Button
-                    size="small"
-                    type="text"
-                    icon={<EditOutlined />}
-                    onClick={() => {
-                      setEditingItem(reward);
-                      form.setFieldsValue({
-                        name: reward.name || reward.Name,
-                        cost: reward.cost || reward.Cost,
-                        category: reward.category || reward.Category,
-                        color: reward.color || reward.Color,
-                      });
-                      setShowRewardModal(true);
-                    }}
-                  />
-                  <Popconfirm
-                    title="ต้องการลบรางวัลนี้หรือไม่?"
-                    onConfirm={() => handleDeleteReward(reward)}
-                    okText="ลบ"
-                    cancelText="ยกเลิก"
-                  >
-                    <Button
-                      size="small"
-                      type="text"
-                      danger
-                      icon={<DeleteOutlined />}
-                    />
-                  </Popconfirm>
+              
+              <div className="flex flex-wrap items-center gap-3">
+                <div className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-sm font-bold shadow-sm ${
+                  isGood 
+                    ? 'bg-gradient-to-r from-green-400 to-emerald-500 text-white' 
+                    : 'bg-gradient-to-r from-red-400 to-pink-500 text-white'
+                }`}>
+                  <Star className="w-3 h-3" />
+                  {isGood ? '+' : ''}{Math.abs(points)} คะแนน
                 </div>
+                
+                <span className={`px-2 py-1 text-xs rounded-full font-medium ${
+                  isRepeatable 
+                    ? 'bg-blue-100 text-blue-700' 
+                    : 'bg-orange-100 text-orange-700'
+                }`}>
+                  {isRepeatable ? 'ทำซ้ำได้' : 'ทำได้ครั้งเดียว/วัน'}
+                </span>
               </div>
-            ))}
+            </div>
+
+            {/* Action buttons */}
+            <div className="flex gap-2">
+              <button
+                onClick={() => handleOpenBehaviorModal(behavior)}
+                className="p-2 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors"
+              >
+                <Edit className="w-4 h-4 text-blue-600" />
+              </button>
+              <button
+                onClick={() => handleDelete('พฤติกรรม', behavior)}
+                className="p-2 bg-red-50 hover:bg-red-100 rounded-lg transition-colors"
+              >
+                <Trash2 className="w-4 h-4 text-red-500" />
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // Render reward card
+  const renderRewardCard = (reward) => (
+    <div key={reward.id} className="relative">
+      <div className="bg-white/80 backdrop-blur-sm rounded-2xl border-2 border-gray-100 overflow-hidden hover:shadow-lg transition-all duration-300 hover:scale-[1.02]">
+        <RewardCard 
+          reward={reward}
+          canAfford={true}
+          disabled={false}
+          onSelect={() => {}}
+        />
+        
+        {/* Action buttons overlay */}
+        <div className="absolute top-4 right-4 flex gap-2">
+          <button
+            onClick={() => handleOpenRewardModal(reward)}
+            className="p-2 bg-white/90 hover:bg-white rounded-lg shadow-sm transition-colors"
+          >
+            <Edit className="w-4 h-4 text-blue-600" />
+          </button>
+          <button
+            onClick={() => handleDelete('รางวัล', reward)}
+            className="p-2 bg-white/90 hover:bg-white rounded-lg shadow-sm transition-colors"
+          >
+            <Trash2 className="w-4 h-4 text-red-500" />
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
+  // Custom Modal Component
+  const Modal = ({ show, title, onClose, onSave, children }) => {
+    if (!show) return null;
+
+    return (
+      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[9999] p-4">
+        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-hidden">
+          <div className="flex items-center justify-between p-6 border-b">
+            <h3 className="text-lg font-bold text-gray-800">{title}</h3>
+            <button
+              onClick={onClose}
+              className="p-1 hover:bg-gray-100 rounded-lg transition-colors"
+            >
+              <X className="w-5 h-5 text-gray-500" />
+            </button>
           </div>
           
-          {rewards.length === 0 && (
-            <div className="text-center py-12 text-gray-500">
-              <GiftOutlined style={{ fontSize: '48px', color: '#ccc' }} />
-              <h3>ยังไม่มีรางวัลที่กำหนด</h3>
-              <p>คลิก "เพิ่มรางวัล" เพื่อเริ่มต้น</p>
-            </div>
-          )}
+          <div className="p-6 overflow-y-auto max-h-[70vh]">
+            {children}
+          </div>
+          
+          <div className="flex gap-3 p-6 border-t bg-gray-50">
+            <button
+              onClick={onClose}
+              className="flex-1 px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+            >
+              ยกเลิก
+            </button>
+            <button
+              onClick={onSave}
+              className="flex-1 px-4 py-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg hover:shadow-md transition-all font-medium"
+            >
+              บันทึก
+            </button>
+          </div>
         </div>
-      ),
-    },
-  ];
+      </div>
+    );
+  };
 
   if (loading && !children.length && !behaviors.length && !rewards.length) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-purple-100 to-pink-100">
         <div className="text-center">
-          <Spin size="large" />
-          <p className="mt-4 text-lg text-gray-600">กำลังโหลดข้อมูล...</p>
+          <div className="w-12 h-12 border-4 border-purple-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-lg text-gray-600">กำลังโหลดข้อมูล...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-100 to-pink-100 p-6">
+    <div className="min-h-screen bg-gradient-to-br from-purple-100 to-pink-100 p-3 sm:p-6">
       <div className="max-w-6xl mx-auto">
         
         {/* Error Alert */}
         {error && (
-          <Alert
-            message="เกิดข้อผิดพลาด"
-            description={error}
-            type="error"
-            closable
-            onClose={() => setError(null)}
-            style={{ marginBottom: '16px' }}
-          />
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+            <div className="flex items-center gap-2">
+              <div className="w-5 h-5 bg-red-500 rounded-full flex-shrink-0" />
+              <div>
+                <h4 className="font-medium text-red-800">เกิดข้อผิดพลาด</h4>
+                <p className="text-sm text-red-600">{error}</p>
+              </div>
+              <button
+                onClick={() => setError(null)}
+                className="ml-auto p-1 hover:bg-red-100 rounded"
+              >
+                <X className="w-4 h-4 text-red-500" />
+              </button>
+            </div>
+          </div>
         )}
 
-        {/* Header - ใช้แบบเดิม */}
-        <div className="bg-white rounded-2xl shadow-xl p-6 mb-6">
-          <div className="flex items-center gap-4">
+        {/* Header with logout button in top right */}
+        <div className="bg-white/70 backdrop-blur-md rounded-2xl shadow-xl p-4 sm:p-6 mb-6 relative">
+          {/* Logout button - top right */}
+          <button
+            onClick={onLogout}
+            className="absolute top-4 right-4 p-2 bg-red-50 hover:bg-red-100 rounded-lg transition-colors group"
+            title="ออกจากระบบ"
+          >
+            <LogOut className="w-5 h-5 text-red-600 group-hover:text-red-700" />
+          </button>
+
+          <div className="flex flex-col sm:flex-row items-center gap-4 pr-16">
             <div className="text-4xl">
               {family?.avatarPath || '👨‍👩‍👧‍👦'}
             </div>
-            <div className="flex-1">
+            <div className="flex-1 text-center sm:text-left">
               <h1 className="text-2xl font-bold text-gray-800">{family?.name}</h1>
               <p className="text-gray-600">{family?.email}</p>
               <p className="text-gray-600">{family?.phone}</p>
-              <div className="mt-2">
-                <span className="px-4 py-2 bg-gradient-to-r from-yellow-400 to-orange-400 text-white rounded-full font-bold shadow-lg">
+              <div className="mt-2 flex flex-col sm:flex-row items-center gap-2">
+                <span className="px-4 py-2 bg-gradient-to-r from-yellow-400 to-orange-400 text-white rounded-full text-sm font-bold shadow-lg">
                   ⭐ รวม {getTotalFamilyPoints()} คะแนน
                 </span>
-                <span className="ml-2 px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm">
+                <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-xs">
                   {children.length} เด็ก
                 </span>
               </div>
             </div>
-            <Button
-              danger
-              icon={<LogoutOutlined />}
-              onClick={onLogout}
-              className="flex items-center gap-2 px-6 py-3"
-            >
-              ออกจากระบบ
-            </Button>
           </div>
         </div>
 
-        {/* Content Tabs - ใช้ Ant Design */}
-        <div className="bg-white rounded-2xl shadow-xl p-6">
-          <Tabs 
-            activeKey={activeTab} 
-            onChange={setActiveTab} 
-            items={tabItems}
-            size="large"
-          />
+        {/* Tabs */}
+        <div className="bg-white/70 backdrop-blur-md rounded-2xl shadow-xl overflow-hidden">
+          <div className="flex">
+            {[
+              { key: 'children', label: 'เด็กในครอบครัว', icon: Users, count: children.length },
+              { key: 'behaviors', label: 'พฤติกรรม', icon: Trophy, count: behaviors.length },
+              { key: 'rewards', label: 'รางวัล', icon: Gift, count: rewards.length }
+            ].map(tab => (
+              <button
+                key={tab.key}
+                onClick={() => setActiveTab(tab.key)}
+                className={`flex-1 flex items-center justify-center gap-2 p-4 text-sm font-medium transition-colors ${
+                  activeTab === tab.key
+                    ? 'bg-purple-500 text-white'
+                    : 'text-gray-600 hover:bg-gray-50'
+                }`}
+              >
+                <tab.icon className="w-4 h-4" />
+                {tab.label} ({tab.count})
+              </button>
+            ))}
+          </div>
+
+          {/* Tab Content */}
+          <div className="p-6">
+            {/* Children Tab */}
+            {activeTab === 'children' && (
+              <div>
+                <div className="flex justify-between items-center mb-6">
+                  <h2 className="text-xl font-bold text-gray-800">เด็กในครอบครัว</h2>
+                  <button
+                    onClick={() => handleOpenChildModal()}
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg hover:shadow-md transition-all font-medium"
+                  >
+                    <Plus className="w-4 h-4" />
+                    เพิ่มเด็ก
+                  </button>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {children.map(renderChildCard)}
+                </div>
+                
+                {children.length === 0 && (
+                  <div className="text-center py-12 text-gray-500">
+                    <Users className="w-16 h-16 mx-auto mb-4 text-gray-300" />
+                    <h3 className="text-lg font-medium mb-2">ยังไม่มีเด็กในครอบครัว</h3>
+                    <p className="text-sm">คลิก "เพิ่มเด็ก" เพื่อเริ่มต้น</p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Behaviors Tab */}
+            {activeTab === 'behaviors' && (
+              <div>
+                <div className="flex justify-between items-center mb-6">
+                  <h2 className="text-xl font-bold text-gray-800">พฤติกรรม</h2>
+                  <button
+                    onClick={() => handleOpenBehaviorModal()}
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg hover:shadow-md transition-all font-medium"
+                  >
+                    <Plus className="w-4 h-4" />
+                    เพิ่มพฤติกรรม
+                  </button>
+                </div>
+                
+                <div className="space-y-4">
+                  {behaviors.map(renderBehaviorCard)}
+                </div>
+                
+                {behaviors.length === 0 && (
+                  <div className="text-center py-12 text-gray-500">
+                    <Trophy className="w-16 h-16 mx-auto mb-4 text-gray-300" />
+                    <h3 className="text-lg font-medium mb-2">ยังไม่มีพฤติกรรมที่กำหนด</h3>
+                    <p className="text-sm">คลิก "เพิ่มพฤติกรรม" เพื่อเริ่มต้น</p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Rewards Tab */}
+            {activeTab === 'rewards' && (
+              <div>
+                <div className="flex justify-between items-center mb-6">
+                  <h2 className="text-xl font-bold text-gray-800">รางวัล</h2>
+                  <button
+                    onClick={() => handleOpenRewardModal()}
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg hover:shadow-md transition-all font-medium"
+                  >
+                    <Plus className="w-4 h-4" />
+                    เพิ่มรางวัล
+                  </button>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {rewards.map(renderRewardCard)}
+                </div>
+                
+                {rewards.length === 0 && (
+                  <div className="text-center py-12 text-gray-500">
+                    <Gift className="w-16 h-16 mx-auto mb-4 text-gray-300" />
+                    <h3 className="text-lg font-medium mb-2">ยังไม่มีรางวัลที่กำหนด</h3>
+                    <p className="text-sm">คลิก "เพิ่มรางวัล" เพื่อเริ่มต้น</p>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Loading Overlay */}
         {loading && (
-          <div style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            background: 'rgba(0,0,0,0.3)',
-            display: 'flex',
-            justifyContent: 'center',
-            alignItems: 'center',
-            zIndex: 9999,
-          }}>
-            <div className="bg-white rounded-2xl p-6 shadow-2xl">
+          <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-[9998]">
+            <div className="bg-white/90 backdrop-blur-md rounded-2xl p-6 shadow-2xl">
               <div className="text-center">
-                <Spin size="large" />
-                <p className="mt-4 text-gray-600">กำลังประมวลผล...</p>
+                <div className="w-12 h-12 border-4 border-purple-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+                <p className="text-gray-600">กำลังประมวลผล...</p>
               </div>
             </div>
           </div>
         )}
 
-        {/* Modals */}
+        {/* Child Modal */}
         <Modal
+          show={showChildModal}
           title={editingItem ? "แก้ไขข้อมูลเด็ก" : "เพิ่มเด็กใหม่"}
-          open={showChildModal}
-          onOk={handleChildSubmit}
-          onCancel={() => {
+          onClose={() => {
             setShowChildModal(false);
-            setEditingItem(null);
-            form.resetFields();
+            resetForms();
           }}
-          okText="บันทึก"
-          cancelText="ยกเลิก"
+          onSave={handleChildSubmit}
         >
-          <Form form={form} layout="vertical">
-            <Form.Item
-              name="name"
-              label="ชื่อเด็ก"
-              rules={[{ required: true, message: 'กรุณากรอกชื่อเด็ก!' }]}
-            >
-              <Input placeholder="กรุณากรอกชื่อเด็ก" />
-            </Form.Item>
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">ชื่อเด็ก *</label>
+              <input
+                type="text"
+                value={childForm.name}
+                onChange={(e) => setChildForm({...childForm, name: e.target.value})}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                placeholder="กรุณากรอกชื่อเด็ก"
+              />
+            </div>
             
-            <Row gutter={16}>
-              <Col span={12}>
-                <Form.Item
-                  name="age"
-                  label="อายุ"
-                  rules={[{ required: true, message: 'กรุณากรอกอายุ!' }]}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">อายุ *</label>
+                <input
+                  type="number"
+                  value={childForm.age}
+                  onChange={(e) => setChildForm({...childForm, age: e.target.value})}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  placeholder="อายุ"
+                  min="1"
+                  max="18"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">เพศ *</label>
+                <select
+                  value={childForm.gender}
+                  onChange={(e) => setChildForm({...childForm, gender: e.target.value})}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                 >
-                  <Input type="number" placeholder="อายุ" min={1} max={18} />
-                </Form.Item>
-              </Col>
-              <Col span={12}>
-                <Form.Item
-                  name="gender"
-                  label="เพศ"
-                  rules={[{ required: true, message: 'กรุณาเลือกเพศ!' }]}
-                >
-                  <Select placeholder="เลือกเพศ">
-                    <Select.Option value="M">ชาย</Select.Option>
-                    <Select.Option value="F">หญิง</Select.Option>
-                  </Select>
-                </Form.Item>
-              </Col>
-            </Row>
+                  <option value="">เลือกเพศ</option>
+                  <option value="M">ชาย</option>
+                  <option value="F">หญิง</option>
+                </select>
+              </div>
+            </div>
             
-            <Form.Item
-              name="avatarPath"
-              label="รูปโปรไฟล์"
-            >
-              <Input placeholder="URL รูปภาพ หรือ emoji หรือเว้นว่างสำหรับรูปเริ่มต้น" />
-            </Form.Item>
-          </Form>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">รูปโปรไฟล์</label>
+              <input
+                type="text"
+                value={childForm.avatarPath}
+                onChange={(e) => setChildForm({...childForm, avatarPath: e.target.value})}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                placeholder="URL รูปภาพ หรือเว้นว่างสำหรับรูปเริ่มต้น"
+              />
+            </div>
+          </div>
         </Modal>
 
         {/* Behavior Modal */}
         <Modal
+          show={showBehaviorModal}
           title={editingItem ? "แก้ไขพฤติกรรม" : "เพิ่มพฤติกรรมใหม่"}
-          open={showBehaviorModal}
-          onOk={handleBehaviorSubmit}
-          onCancel={() => {
+          onClose={() => {
             setShowBehaviorModal(false);
-            setEditingItem(null);
-            form.resetFields();
+            resetForms();
           }}
-          okText="บันทึก"
-          cancelText="ยกเลิก"
+          onSave={handleBehaviorSubmit}
         >
-          <Form form={form} layout="vertical">
-            <Form.Item
-              name="name"
-              label="ชื่อพฤติกรรม"
-              rules={[{ required: true, message: 'กรุณากรอกชื่อพฤติกรรม!' }]}
-            >
-              <Input placeholder="กรุณากรอกชื่อพฤติกรรม" />
-            </Form.Item>
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">ชื่อพฤติกรรม *</label>
+              <input
+                type="text"
+                value={behaviorForm.name}
+                onChange={(e) => setBehaviorForm({...behaviorForm, name: e.target.value})}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                placeholder="กรุณากรอกชื่อพฤติกรรม"
+              />
+            </div>
             
-            <Row gutter={16}>
-              <Col span={12}>
-                <Form.Item
-                  name="type"
-                  label="ประเภท"
-                  rules={[{ required: true, message: 'กรุณาเลือกประเภท!' }]}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">ประเภท *</label>
+                <select
+                  value={behaviorForm.type}
+                  onChange={(e) => setBehaviorForm({...behaviorForm, type: e.target.value})}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                 >
-                  <Select placeholder="เลือกประเภท">
-                    <Select.Option value="Good">พฤติกรรมดี</Select.Option>
-                    <Select.Option value="Bad">พฤติกรรมไม่ดี</Select.Option>
-                  </Select>
-                </Form.Item>
-              </Col>
-              <Col span={12}>
-                <Form.Item
-                  name="points"
-                  label="คะแนน"
-                  rules={[{ required: true, message: 'กรุณากรอกคะแนน!' }]}
-                >
-                  <Input type="number" placeholder="จำนวนคะแนน" min={1} />
-                </Form.Item>
-              </Col>
-            </Row>
+                  <option value="Good">พฤติกรรมดี</option>
+                  <option value="Bad">พฤติกรรมไม่ดี</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">คะแนน *</label>
+                <input
+                  type="number"
+                  value={behaviorForm.points}
+                  onChange={(e) => setBehaviorForm({...behaviorForm, points: e.target.value})}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  placeholder="จำนวนคะแนน"
+                  min="1"
+                />
+              </div>
+            </div>
             
-            <Row gutter={16}>
-              <Col span={12}>
-                <Form.Item
-                  name="category"
-                  label="หมวดหมู่"
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">หมวดหมู่</label>
+                <select
+                  value={behaviorForm.category}
+                  onChange={(e) => setBehaviorForm({...behaviorForm, category: e.target.value})}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                 >
-                  <Select placeholder="เลือกหมวดหมู่">
-                    {behaviorCategories?.map(cat => (
-                      <Select.Option key={cat.value} value={cat.value}>
-                        {cat.label}
-                      </Select.Option>
-                    ))}
-                  </Select>
-                </Form.Item>
-              </Col>
-              <Col span={12}>
-                <Form.Item
-                  name="color"
-                  label="สี"
-                >
-                  <Input type="color" />
-                </Form.Item>
-              </Col>
-            </Row>
+                  <option value="">เลือกหมวดหมู่</option>
+                  {behaviorCategories?.map(cat => (
+                    <option key={cat.value} value={cat.value}>{cat.label}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">สี</label>
+                <input
+                  type="color"
+                  value={behaviorForm.color}
+                  onChange={(e) => setBehaviorForm({...behaviorForm, color: e.target.value})}
+                  className="w-full h-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                />
+              </div>
+            </div>
             
-            <Form.Item
-              name="isRepeatable"
-              valuePropName="checked"
-            >
-              <input type="checkbox" style={{ marginRight: '8px' }} />
-              สามารถทำซ้ำได้
-            </Form.Item>
-          </Form>
+            <div>
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={behaviorForm.isRepeatable}
+                  onChange={(e) => setBehaviorForm({...behaviorForm, isRepeatable: e.target.checked})}
+                  className="rounded"
+                />
+                <span className="text-sm text-gray-700">สามารถทำซ้ำได้</span>
+              </label>
+            </div>
+          </div>
         </Modal>
 
         {/* Reward Modal */}
         <Modal
+          show={showRewardModal}
           title={editingItem ? "แก้ไขรางวัล" : "เพิ่มรางวัลใหม่"}
-          open={showRewardModal}
-          onOk={handleRewardSubmit}
-          onCancel={() => {
+          onClose={() => {
             setShowRewardModal(false);
-            setEditingItem(null);
-            form.resetFields();
+            resetForms();
           }}
-          okText="บันทึก"
-          cancelText="ยกเลิก"
+          onSave={handleRewardSubmit}
         >
-          <Form form={form} layout="vertical">
-            <Form.Item
-              name="name"
-              label="ชื่อรางวัล"
-              rules={[{ required: true, message: 'กรุณากรอกชื่อรางวัล!' }]}
-            >
-              <Input placeholder="กรุณากรอกชื่อรางวัล" />
-            </Form.Item>
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">ชื่อรางวัล *</label>
+              <input
+                type="text"
+                value={rewardForm.name}
+                onChange={(e) => setRewardForm({...rewardForm, name: e.target.value})}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                placeholder="กรุณากรอกชื่อรางวัล"
+              />
+            </div>
             
-            <Row gutter={16}>
-              <Col span={12}>
-                <Form.Item
-                  name="cost"
-                  label="ราคา (คะแนน)"
-                  rules={[{ required: true, message: 'กรุณากรอกราคา!' }]}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">ราคา (คะแนน) *</label>
+                <input
+                  type="number"
+                  value={rewardForm.cost}
+                  onChange={(e) => setRewardForm({...rewardForm, cost: e.target.value})}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  placeholder="จำนวนคะแนนที่ใช้แลก"
+                  min="1"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">หมวดหมู่</label>
+                <select
+                  value={rewardForm.category}
+                  onChange={(e) => setRewardForm({...rewardForm, category: e.target.value})}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                 >
-                  <Input type="number" placeholder="จำนวนคะแนนที่ใช้แลก" min={1} />
-                </Form.Item>
-              </Col>
-              <Col span={12}>
-                <Form.Item
-                  name="category"
-                  label="หมวดหมู่"
-                >
-                  <Select placeholder="เลือกหมวดหมู่">
-                    {rewardCategories?.map(cat => (
-                      <Select.Option key={cat.value} value={cat.value}>
-                        {cat.label}
-                      </Select.Option>
-                    ))}
-                  </Select>
-                </Form.Item>
-              </Col>
-            </Row>
+                  <option value="">เลือกหมวดหมู่</option>
+                  {rewardCategories?.map(cat => (
+                    <option key={cat.value} value={cat.value}>{cat.label}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
             
-            <Form.Item
-              name="color"
-              label="สี"
-            >
-              <Input type="color" />
-            </Form.Item>
-          </Form>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">สี</label>
+              <input
+                type="color"
+                value={rewardForm.color}
+                onChange={(e) => setRewardForm({...rewardForm, color: e.target.value})}
+                className="w-full h-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+              />
+            </div>
+          </div>
         </Modal>
       </div>
     </div>
